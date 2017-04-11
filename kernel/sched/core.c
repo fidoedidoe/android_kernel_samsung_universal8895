@@ -3278,7 +3278,7 @@ static void __sched notrace __schedule(bool preempt)
 
 	cpu = smp_processor_id();
 	rq = cpu_rq(cpu);
-	rcu_note_context_switch();
+	rcu_note_context_switch(preempt);
 	prev = rq->curr;
 
 	/*
