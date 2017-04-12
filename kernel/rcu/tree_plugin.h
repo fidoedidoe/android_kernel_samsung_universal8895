@@ -288,13 +288,14 @@ static void rcu_preempt_qs(void)
  *
  * Caller must disable preemption.
  */
-static void rcu_preempt_note_context_switch(void)
+static void rcu_preempt_note_context_switch(bool preempt)
 {
 	struct task_struct *t = current;
 	unsigned long flags;
 	struct rcu_data *rdp;
 	struct rcu_node *rnp;
 
+	WARN_ON_ONCE(!preempt && t->rcu_read_lock_nesting > 0);
 	if (t->rcu_read_lock_nesting > 0 &&
 	    !t->rcu_read_unlock_special.b.blocked) {
 
@@ -750,7 +751,7 @@ static void __init rcu_bootup_announce(void)
  * Because preemptible RCU does not exist, we never have to check for
  * CPUs being in quiescent states.
  */
-static void rcu_preempt_note_context_switch(void)
+static void rcu_preempt_note_context_switch(bool preempt)
 {
 }
 
