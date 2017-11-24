@@ -5834,14 +5834,26 @@ static inline bool cpu_in_sg(struct sched_group *sg, int cpu)
  * select_energy_cpu_idx(): estimate the energy impact of changing the
  * utilization distribution.
  *
- * The eenv parameter specifies the changes: utilisation amount and a pair of
- * possible CPU candidates (the previous CPU and a different target CPU).
+ * The eenv parameter specifies the changes: utilization amount and a
+ * collection of possible CPU candidates. The number of candidates
+ * depends upon the selection algorithm used.
+ *
+ * If find_best_target was used to select candidate CPUs, there will
+ * be at most 3 including prev_cpu. If not, we used a brute force
+ * selection which will provide the union of:
+ *  * CPUs belonging to the highest sd which is not overutilized
+ *  * CPUs the task is allowed to run on
+ *  * online CPUs
  *
  * This function returns the index of a CPU candidate specified by the
- * energy_env which corresponds to the first CPU saving energy.
+ * energy_env which corresponds to the most energy efficient CPU.
  * Thus, 0 (EAS_CPU_PRV) means that non of the CPU candidate is more energy
  * efficient than running on prev_cpu. This is also the value returned in case
- * of abort due to error conditions during the computations.
+ * of abort due to error conditions during the computations. The only
+ * exception to this if we fail to access the energy model via sd_ea, where
+ * we return -1 with the intent of asking the system to use a different
+ * wakeup placement algorithm.
+ *
  * A value greater than zero means that the first energy-efficient CPU is the
  * one represented by eenv->cpu[eenv->next_idx].cpu_id.
  */
@@ -5856,7 +5868,7 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
 	sd_cpu = eenv->cpu[EAS_CPU_PRV].cpu_id;
 	sd = rcu_dereference(per_cpu(sd_ea, sd_cpu));
 	if (!sd)
-		return EAS_CPU_PRV;
+		return -1;
 
 	cpumask_clear(&eenv->cpus_mask);
 	for (cpu_idx = EAS_CPU_PRV; cpu_idx < EAS_CPU_CNT; ++cpu_idx) {
@@ -6912,7 +6924,7 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu,
 				   int sync_boost)
 {
 	bool boosted, prefer_idle;
-	int target_cpu;
+	int target_cpu = -1;
 	int backup_cpu;
 	int next_cpu;
 
@@ -6932,7 +6944,6 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu,
 	next_cpu = find_best_target(p, &backup_cpu, boosted || sync_boost,
 				    prefer_idle);
 	if (next_cpu == -1) {
-		target_cpu = prev_cpu;
 		goto out;
 	}
 
@@ -6944,7 +6955,6 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu,
 		goto out;
 	}
 
-	target_cpu = prev_cpu;
 	if (next_cpu != prev_cpu) {
 		int delta = 0;
 		struct energy_env eenv = {
@@ -6979,16 +6989,16 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu,
 		}
 
 		/* Check if EAS_CPU_NXT is a more energy efficient CPU */
-		if (select_energy_cpu_idx(&eenv) != EAS_CPU_PRV) {
+		if (select_energy_cpu_idx(&eenv) >= EAS_CPU_PRV) {
 			schedstat_inc(p, se.statistics.nr_wakeups_secb_nrg_sav);
 			schedstat_inc(this_rq(), eas_stats.secb_nrg_sav);
 			target_cpu = eenv.cpu[eenv.next_idx].cpu_id;
 			goto out;
 		}
 
+		target_cpu = prev_cpu;
 		schedstat_inc(p, se.statistics.nr_wakeups_secb_no_nrg_sav);
 		schedstat_inc(this_rq(), eas_stats.secb_no_nrg_sav);
-		target_cpu = prev_cpu;
 		goto out;
 	}
 
@@ -7156,7 +7166,12 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 			bool sync_boost = sync && cpu >= start_cpu(true);
 
 			new_cpu = select_energy_cpu_brute(p, prev_cpu, sync_boost);
-		} else {
+		}
+
+		if (!use_secb || (use_secb && new_cpu == -1)) {
+			/* if we did an energy-aware placement and had no choices available
+			* then fall back to the default find_idlest_cpu choice
+			*/
 			new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);
 		}
 	}
