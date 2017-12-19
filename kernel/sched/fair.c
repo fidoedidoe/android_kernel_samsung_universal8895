@@ -6912,7 +6912,6 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu,
 				   int sync_boost)
 {
 	bool boosted, prefer_idle;
-	struct sched_domain *sd;
 	int target_cpu;
 	int backup_cpu;
 	int next_cpu;
@@ -6926,12 +6925,6 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu,
 #else
 	prefer_idle = 0;
 #endif
-
-	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
-	if (!sd) {
-		target_cpu = prev_cpu;
-		goto out;
-	}
 
 	sync_entity_load_avg(&p->se);
 
@@ -7039,6 +7032,14 @@ static inline int wake_energy(struct task_struct *p, int prev_cpu,
 	if (sd_overutilized(sd))
 		return false;
 
+	/*
+	 * we cannot do energy-aware wakeup placement sensibly
+	 * for tasks with 0 utilization, so let them be placed
+	 * according to the normal strategy.
+	 */
+	if (!task_util(p))
+		return false;
+
 	if(!sched_feat(EAS_PREFER_IDLE)){
 		/*
 		 * Force prefer-idle tasks into the slow path, this may not happen
@@ -7070,6 +7071,8 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	int cpu = smp_processor_id();
 	int new_cpu = prev_cpu;
 	int want_affine = 0;
+	int want_energy = 0;
+	int use_secb = 0;
 	int sync = (wake_flags & WF_SYNC) && !(current->flags & PF_EXITING);
 
 	rcu_read_lock();
@@ -7089,16 +7092,11 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 		}
 
 		record_wakee(p);
-		want_affine = !wake_wide(p, sibling_count_hint) &&
+		want_energy = wake_energy(p, prev_cpu, sd_flag, wake_flags);
+		want_affine = !want_energy &&
+			      !wake_wide(p, sibling_count_hint) &&
 			      !_wake_cap &&
 			      cpumask_test_cpu(cpu, &p->cpus_allowed);
-	}
-
-	if (wake_energy(p, prev_cpu, sd_flag, wake_flags)) {
-		bool sync_boost = sync && cpu >= start_cpu(true);
-
-		new_cpu = select_energy_cpu_brute(p, prev_cpu, sync_boost);
-		goto unlock;
 	}
 
 	for_each_domain(cpu, tmp) {
@@ -7115,9 +7113,22 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 			break;
 		}
 
+		/*
+		 * If we are able to try an energy-aware wakeup,
+		 * select the highest non-overutilized sched domain
+		 * which includes this cpu and prev_cpu
+		 *
+		 * maybe want to not test prev_cpu and only consider
+		 * the current one?
+		 */
+		if (want_energy &&
+		    !sd_overutilized(tmp) &&
+		    cpumask_test_cpu(prev_cpu, sched_domain_span(tmp)))
+			use_secb = 1;
+
 		if (tmp->flags & sd_flag)
 			sd = tmp;
-		else if (!want_affine)
+		else if (!(want_affine || want_energy))
 			break;
 	}
 
@@ -7141,7 +7152,13 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 			new_cpu = select_idle_sibling(p, prev_cpu, new_cpu);
 
 	} else {
-		new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);
+		if (use_secb) {
+			bool sync_boost = sync && cpu >= start_cpu(true);
+
+			new_cpu = select_energy_cpu_brute(p, prev_cpu, sync_boost);
+		} else {
+			new_cpu = find_idlest_cpu(sd, p, cpu, prev_cpu, sd_flag);
+		}
 	}
 
 unlock:
