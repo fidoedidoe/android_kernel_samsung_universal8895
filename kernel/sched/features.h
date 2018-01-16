@@ -83,3 +83,10 @@ SCHED_FEAT(ENERGY_AWARE, true)
 #else
 SCHED_FEAT(ENERGY_AWARE, false)
 #endif
+
+#ifdef CONFIG_SCHED_EHMP
+SCHED_FEAT(EXYNOS_HMP, true)
+#else
+SCHED_FEAT(EXYNOS_HMP, false)
+#endif
+
