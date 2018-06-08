@@ -366,13 +366,30 @@ static int exynos_cpufreq_target(struct cpufreq_policy *policy,
 					unsigned int relation)
 {
 	struct exynos_cpufreq_domain *domain = find_domain(policy->cpu);
-	unsigned long freq = (unsigned long)target_freq;
+	unsigned long freq;
+	unsigned int index;
+	int ret = 0;
 
 	if (!domain)
 		return -EINVAL;
 
 	if (list_empty(&domain->dm_list))
 		return __exynos_cpufreq_target(policy, target_freq, relation);
+
+	ret = cpufreq_frequency_table_target(policy, domain->freq_table,
+					target_freq, relation, &index);
+	if (ret) {
+		pr_err("target frequency(%d) out of range\n", target_freq);
+	}
+
+	mutex_lock(&domain->lock);
+
+	freq = (unsigned long)index_to_freq(domain->freq_table, index);
+	if (domain->old == freq) {
+		mutex_unlock(&domain->lock);
+		return 0;
+	}
+	mutex_unlock(&domain->lock);
 
 	return DM_CALL(domain->dm_type, &freq);
 }
