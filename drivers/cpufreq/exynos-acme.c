@@ -16,6 +16,7 @@
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
+#include <linux/pm_qos.h>
 #include <linux/exynos-ss.h>
 #include <linux/pm_opp.h>
 
@@ -48,6 +49,20 @@ static struct exynos_cpufreq_domain *find_domain(unsigned int cpu)
 			return domain;
 
 	pr_err("cannot find cpufreq domain by cpu\n");
+	return NULL;
+}
+
+static
+struct exynos_cpufreq_domain *find_domain_pm_qos_class(int pm_qos_class)
+{
+	struct exynos_cpufreq_domain *domain;
+
+	list_for_each_entry(domain, &domains, list)
+		if (domain->pm_qos_min_class == pm_qos_class ||
+			domain->pm_qos_max_class == pm_qos_class)
+			return domain;
+
+	pr_err("cannot find cpufreq domain by PM QoS class\n");
 	return NULL;
 }
 
@@ -140,6 +155,32 @@ static int set_freq(struct exynos_cpufreq_domain *domain,
 			domain->id, domain->old, target_freq);
 
 	return err;
+}
+
+static unsigned int apply_pm_qos(struct exynos_cpufreq_domain *domain,
+					struct cpufreq_policy *policy,
+					unsigned int target_freq)
+{
+	unsigned int freq;
+	int qos_min, qos_max;
+
+	/*
+	 * In case of static governor, it should garantee to scale to
+	 * target, it does not apply PM QoS.
+	 */
+	if (static_governor(policy))
+		return target_freq;
+
+	qos_min = pm_qos_request(domain->pm_qos_min_class);
+	qos_max = pm_qos_request(domain->pm_qos_max_class);
+
+	if (qos_min < 0 || qos_max < 0)
+		return target_freq;
+
+	freq = max((unsigned int)qos_min, target_freq);
+	freq = min((unsigned int)qos_max, freq);
+
+	return freq;
 }
 
 static int pre_scale(void)
@@ -277,6 +318,7 @@ static int __exynos_cpufreq_target(struct cpufreq_policy *policy,
 	 * Updated target_freq is in between minimum and maximum PM QoS/policy,
 	 * priority of policy is higher.
 	 */
+	target_freq = apply_pm_qos(domain, policy, target_freq);
 	ret = cpufreq_frequency_table_target(policy, domain->freq_table,
 					target_freq, relation, &index);
 	if (ret) {
@@ -334,10 +376,29 @@ static unsigned int exynos_cpufreq_get(unsigned int cpu)
 static int exynos_cpufreq_suspend(struct cpufreq_policy *policy)
 {
 	struct exynos_cpufreq_domain *domain = find_domain(policy->cpu);
+	unsigned int freq;
 
 	if (!domain)
 		return -EINVAL;
 
+	/* To handle reboot faster, it does not thrrotle frequency of domain0 */
+	if (system_state == SYSTEM_RESTART && domain->id != 0)
+		freq = domain->min_freq;
+	else
+		freq = domain->resume_freq;
+
+	pm_qos_update_request(&domain->min_qos_req, freq);
+	pm_qos_update_request(&domain->max_qos_req, freq);
+
+	/* To guarantee applying frequency, update_freq() is called explicitly */
+	update_freq(domain, freq);
+
+	/*
+	 * Although cpufreq governor is stopped in cpufreq_suspend(),
+	 * afterwards, frequency change can be requested by
+	 * PM QoS. To prevent chainging frequency after
+	 * cpufreq suspend, disable scaling for all domains.
+	 */
 	disable_domain(domain);
 
 	return 0;
@@ -351,6 +412,9 @@ static int exynos_cpufreq_resume(struct cpufreq_policy *policy)
 		return -EINVAL;
 
 	enable_domain(domain);
+
+	pm_qos_update_request(&domain->min_qos_req, domain->min_freq);
+	pm_qos_update_request(&domain->max_qos_req, domain->max_freq);
 
 	return 0;
 }
@@ -366,6 +430,36 @@ static struct cpufreq_driver exynos_driver = {
 	.resume		= exynos_cpufreq_resume,
 	.attr		= cpufreq_generic_attr,
 };
+
+/*********************************************************************
+ *                      SUPPORT for DVFS MANAGER                     *
+ *********************************************************************/
+static void update_dm_constraint(struct exynos_cpufreq_domain *domain,
+					struct cpufreq_policy *new_policy)
+{
+	struct cpufreq_policy *policy;
+	unsigned int policy_min, policy_max;
+	unsigned int pm_qos_min, pm_qos_max;
+
+	if (new_policy) {
+		policy_min = new_policy->min;
+		policy_max = new_policy->max;
+	} else {
+		policy = cpufreq_cpu_get(cpumask_first(&domain->cpus));
+		if (!policy)
+			return;
+
+		policy_min = policy->min;
+		policy_max = policy->max;
+		cpufreq_cpu_put(policy);
+	}
+
+	pm_qos_min = pm_qos_request(domain->pm_qos_min_class);
+	pm_qos_max = pm_qos_request(domain->pm_qos_max_class);
+
+	policy_update_call_to_DM(domain->dm_type, max(policy_min, pm_qos_min),
+						  min(policy_max, pm_qos_max));
+}
 
 static int dm_scaler(enum exynos_dm_type dm_type, unsigned int target_freq,
 						unsigned int relation)
@@ -397,6 +491,162 @@ static int dm_scaler(enum exynos_dm_type dm_type, unsigned int target_freq,
 
 	return ret;
 }
+
+/*********************************************************************
+ *                       CPUFREQ PM QOS HANDLER                      *
+ *********************************************************************/
+static int need_update_freq(struct exynos_cpufreq_domain *domain,
+				int pm_qos_class, unsigned int freq)
+{
+	unsigned int cur = get_freq(domain);
+
+	if (cur == freq)
+		return 0;
+
+	if (pm_qos_class == domain->pm_qos_min_class) {
+		if (cur > freq)
+			return 0;
+	} else if (domain->pm_qos_max_class == pm_qos_class) {
+		if (cur < freq)
+			return 0;
+	} else {
+		/* invalid PM QoS class */
+		return -EINVAL;
+	}
+
+	return 1;
+}
+
+static int exynos_cpufreq_pm_qos_callback(struct notifier_block *nb,
+					unsigned long val, void *v)
+{
+	int pm_qos_class = *((int *)v);
+	struct exynos_cpufreq_domain *domain;
+	int ret;
+
+	pr_debug("update PM QoS class %d to %ld kHz\n", pm_qos_class, val);
+
+	domain = find_domain_pm_qos_class(pm_qos_class);
+	if (!domain)
+		return NOTIFY_BAD;
+
+	update_dm_constraint(domain, NULL);
+
+	ret = need_update_freq(domain, pm_qos_class, val);
+	if (ret < 0)
+		return NOTIFY_BAD;
+	if (!ret)
+		return NOTIFY_OK;
+
+	if (update_freq(domain, val))
+		return NOTIFY_BAD;
+
+	return NOTIFY_OK;
+}
+
+/*********************************************************************
+ *                       EXTERNAL EVENT HANDLER                      *
+ *********************************************************************/
+static int exynos_cpufreq_policy_callback(struct notifier_block *nb,
+				unsigned long event, void *data)
+{
+	struct cpufreq_policy *policy = data;
+	struct exynos_cpufreq_domain *domain = find_domain(policy->cpu);
+
+	if (!domain)
+		return NOTIFY_OK;
+
+	switch (event) {
+	case CPUFREQ_ADJUST:
+		break;
+	case CPUFREQ_NOTIFY:
+		update_dm_constraint(domain, policy);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos_cpufreq_policy_notifier = {
+	.notifier_call = exynos_cpufreq_policy_callback,
+};
+
+static int exynos_cpufreq_cpu_up_callback(struct notifier_block *notifier,
+					unsigned long action, void *hcpu)
+{
+	unsigned int cpu = (unsigned long)hcpu;
+	struct exynos_cpufreq_domain *domain;
+	struct cpumask mask;
+
+	/*
+	 * enable_nonboot_cpus() sends CPU_ONLINE_FROZEN notify event,
+	 * but cpu_up() sends just CPU_ONLINE. We don't want that
+	 * this callback does nothing before cpufreq_resume().
+	 */
+	if (action != CPU_ONLINE && action != CPU_DOWN_FAILED)
+		return NOTIFY_OK;
+
+	domain = find_domain(cpu);
+	if (!domain)
+		return NOTIFY_BAD;
+
+	/*
+	 * The first incomming cpu in domain enables frequency scaling
+	 * and clears limit of frequency.
+	 */
+	cpumask_and(&mask, &domain->cpus, cpu_online_mask);
+	if (cpumask_weight(&mask) == 1) {
+		enable_domain(domain);
+		pm_qos_update_request(&domain->max_qos_req, domain->max_freq);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __refdata exynos_cpufreq_cpu_up_notifier = {
+	.notifier_call = exynos_cpufreq_cpu_up_callback,
+	.priority = INT_MIN,
+};
+
+static int exynos_cpufreq_cpu_down_callback(struct notifier_block *notifier,
+					unsigned long action, void *hcpu)
+{
+	unsigned int cpu = (unsigned long)hcpu;
+	struct exynos_cpufreq_domain *domain;
+	struct cpumask mask;
+
+	/*
+	 * disable_nonboot_cpus() sends CPU_DOWN_PREPARE_FROZEN notify
+	 * event, but cpu_down() sends just CPU_DOWN_PREPARE. We don't
+	 * want that this callback does nothing after cpufreq_suspend().
+	 */
+	if (action != CPU_DOWN_PREPARE)
+		return NOTIFY_OK;
+
+	domain = find_domain(cpu);
+	if (!domain)
+		return NOTIFY_BAD;
+
+	/*
+	 * The last outgoing cpu in domain limits frequency to minimum
+	 * and disables frequency scaling.
+	 */
+	cpumask_and(&mask, &domain->cpus, cpu_online_mask);
+	if (cpumask_weight(&mask) == 1) {
+		pm_qos_update_request(&domain->max_qos_req, domain->min_freq);
+		disable_domain(domain);
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __refdata exynos_cpufreq_cpu_down_notifier = {
+	.notifier_call = exynos_cpufreq_cpu_down_callback,
+	/*
+	 * This notifier should be perform before cpufreq_cpu_notifier.
+	 */
+	.priority = INT_MIN + 2,
+};
 
 /*********************************************************************
  *                       EXTERNAL REFERENCE APIs                     *
@@ -433,6 +683,22 @@ void sec_bootstat_get_cpuinfo(int *freq, int *online)
 }
 #endif
 
+void exynos_cpufreq_reset_boot_qos(void)
+{
+	struct exynos_cpufreq_domain *domain;
+
+	list_for_each_entry(domain, &domains, list) {
+		if (!domain->boot_qos)
+			continue;
+
+		pm_qos_update_request_timeout(&domain->min_qos_req,
+				domain->boot_qos, 40 * USEC_PER_SEC);
+		pm_qos_update_request_timeout(&domain->max_qos_req,
+				domain->boot_qos, 40 * USEC_PER_SEC);
+	}
+}
+EXPORT_SYMBOL(exynos_cpufreq_reset_boot_qos);
+
 /*********************************************************************
  *                          SYSFS INTERFACES                         *
  *********************************************************************/
@@ -467,6 +733,7 @@ static ssize_t show_cpufreq_table(struct kobject *kobj,
 	return count - 1;
 }
 
+struct pm_qos_request cpu_online_max_qos_req;
 #ifdef CONFIG_SW_SELF_DISCHARGING
 static ssize_t show_cpufreq_self_discharging(struct kobject *kobj,
 			     struct attribute *attr, char *buf)
@@ -525,6 +792,10 @@ static void print_domain_info(struct exynos_cpufreq_domain *domain)
 	pr_info("CPUFREQ of domain%d max freq : %d kHz, min freq : %d kHz\n",
 			domain->id,
 			domain->max_freq, domain->min_freq);
+
+	pr_info("CPUFREQ of domain%d PM QoS max-class-id : %d, min-class-id : %d\n",
+			domain->id,
+			domain->pm_qos_max_class, domain->pm_qos_min_class);
 
 	pr_info("CPUFREQ of domain%d table size = %d\n",
 			domain->id, domain->table_size);
@@ -618,6 +889,134 @@ static __init int get_jig_status(char *arg)
 
 early_param("jig", get_jig_status);
 #endif
+
+static __init void set_boot_qos(struct exynos_cpufreq_domain *domain,
+					struct device_node *dn)
+{
+	unsigned int boot_qos, val;
+	int freq;
+
+	/*
+	 * Basically booting pm_qos is set to max frequency of domain.
+	 * But if pm_qos-booting exists in device tree,
+	 * booting pm_qos is selected to smaller one
+	 * between max frequency of domain and the value defined in device tree.
+	 */
+	boot_qos = domain->max_freq;
+	if (!of_property_read_u32(dn, "pm_qos-booting", &val))
+		boot_qos = min(boot_qos, val);
+
+	/*
+	 * Before setting booting pm_qos, ACME driver check thermal condition.
+	 * If necessary, booting pm_qos should be set to frequency
+	 * that considering thermal condition.
+	 * exynos_earlytmu_get_boot_freq function return this frequency.
+	 * 	1. return > 0	: booting pm_qos should be set lower than return value
+	 *	2. return == 0	: booting pm_qos should be set to min_freq of domain
+	 *	3. return < 0	: don't need to apply thermal condition
+	 */
+	freq = exynos_earlytmu_get_boot_freq(domain->id);
+	if (freq >= 0) {
+		/*
+		 * Back up boot_qos value for reset booting pm_qos
+		 * after thermal-throttling is enabled.
+		 */
+		domain->boot_qos = boot_qos;
+
+		val = (unsigned int)freq;
+		val = max(val, domain->min_freq);
+		boot_qos = min(val, boot_qos);
+	}
+/*
+ * Featuring VDD auto calibration code,
+ * because VDD auto calibration will be used selectively depending on the project.
+ */
+#ifdef CONFIG_VDD_AUTO_CAL
+	else {
+		unsigned int auto_cal_qos;
+
+		/*
+		 * If thernmal condition is ok
+		 * and auto calibration is defined in Device Tree,
+		 * booting pm_qos should set to defined auto-cal-freq
+		 * for defined auto-cal-duration.
+		 */
+		if (!of_property_read_u32(dn, "auto-cal-freq", &auto_cal_qos) &&
+				!of_property_read_u32(dn, "auto-cal-duration", &val)) {
+			/*
+			 * auto-cal qos use user_qos_req,
+			 * because user_qos_req isn't used in booting time.
+			 */
+			pm_qos_update_request_timeout(&domain->user_min_qos_req,
+					auto_cal_qos, val * USEC_PER_MSEC);
+			pm_qos_update_request_timeout(&domain->user_max_qos_req,
+					auto_cal_qos, val * USEC_PER_MSEC);
+		}
+
+	}
+#endif
+
+	pm_qos_update_request_timeout(&domain->min_qos_req,
+			boot_qos, 40 * USEC_PER_SEC);
+	pm_qos_update_request_timeout(&domain->max_qos_req,
+			boot_qos, 40 * USEC_PER_SEC);
+
+	/* In case of factory mode, if jig cable is attached,
+	 * set cpufreq max limit as frequency of "pm_qos-jigbooting" in device tree.
+	 */
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_SEC_FACTORY)
+	pr_info("%s:jig_attached = %d\n", __func__, jig_attached);
+
+	if(jig_attached && !of_property_read_u32(dn, "pm_qos-jigbooting", &val)) {	
+		pm_qos_update_request_timeout(&domain->max_qos_req,
+				val, 100 * USEC_PER_SEC);
+		
+		pr_info("%s:Jig detected!. Set cpufreq max limit as %d for 100 secs(cpufreq-domain%d)\n", 
+			__func__, val, domain->id);
+	}
+#endif
+}
+
+static __init int init_pm_qos(struct exynos_cpufreq_domain *domain,
+					struct device_node *dn)
+{
+	int ret;
+
+	ret = of_property_read_u32(dn, "pm_qos-min-class",
+					&domain->pm_qos_min_class);
+	if (ret)
+		return ret;
+
+	ret = of_property_read_u32(dn, "pm_qos-max-class",
+					&domain->pm_qos_max_class);
+	if (ret)
+		return ret;
+
+	domain->pm_qos_min_notifier.notifier_call = exynos_cpufreq_pm_qos_callback;
+	domain->pm_qos_min_notifier.priority = INT_MAX;
+	domain->pm_qos_max_notifier.notifier_call = exynos_cpufreq_pm_qos_callback;
+	domain->pm_qos_max_notifier.priority = INT_MAX;
+
+	pm_qos_add_notifier(domain->pm_qos_min_class,
+				&domain->pm_qos_min_notifier);
+	pm_qos_add_notifier(domain->pm_qos_max_class,
+				&domain->pm_qos_max_notifier);
+
+	pm_qos_add_request(&domain->min_qos_req,
+			domain->pm_qos_min_class, domain->min_freq);
+	pm_qos_add_request(&domain->max_qos_req,
+			domain->pm_qos_max_class, domain->max_freq);
+	pm_qos_add_request(&domain->user_min_qos_req,
+			domain->pm_qos_min_class, domain->min_freq);
+	pm_qos_add_request(&domain->user_max_qos_req,
+			domain->pm_qos_max_class, domain->max_freq);
+	pm_qos_add_request(&domain->user_min_qos_wo_boost_req,
+			domain->pm_qos_min_class, domain->min_freq);
+
+	set_boot_qos(domain, dn);
+
+	return 0;
+}
 
 static int init_constraint_table_dt(struct exynos_cpufreq_domain *domain,
 					struct exynos_cpufreq_dm *dm,
@@ -732,6 +1131,10 @@ static __init int init_domain(struct exynos_cpufreq_domain *domain,
 	if (!of_property_read_u32(dn, "min-freq", &val))
 		domain->min_freq = max(domain->min_freq, val);
 
+	/* Default QoS for user */
+	if (!of_property_read_u32(dn, "user-default-qos", &val))
+		domain->user_default_qos = val;
+
 	domain->boot_freq = cal_dfs_get_boot_freq(domain->cal_id);
 	domain->resume_freq = cal_dfs_get_resume_freq(domain->cal_id);
 
@@ -740,6 +1143,11 @@ static __init int init_domain(struct exynos_cpufreq_domain *domain,
 		return ret;
 
 	domain->old = get_freq(domain);
+
+	/* Initialize PM QoS */
+	ret = init_pm_qos(domain, dn);
+	if (ret)
+		return ret;
 
 	/*
 	 * Initialize CPUFreq DVFS Manager
@@ -831,14 +1239,6 @@ static __init struct exynos_cpufreq_domain *alloc_domain(struct device_node *dn)
 	if (!domain->freq_table)
 		goto free;
 
-	/* Allocate boost table */
-	if (domain->boost_supported) {
-		domain->boost_max_freqs = kzalloc(sizeof(unsigned int)
-				* cpumask_weight(&domain->cpus), GFP_KERNEL);
-		if (!domain->boost_max_freqs)
-			goto free;
-	}
-
 	/*
 	 * Allocate DVFS Manager constraints.
 	 * Constraints are needed only by DVFS Manager, these are not
@@ -914,6 +1314,14 @@ static int __init exynos_cpufreq_init(void)
 	}
 
 	init_sysfs();
+
+	pm_qos_add_request(&cpu_online_max_qos_req, PM_QOS_CPU_ONLINE_MAX,
+					PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
+	register_hotcpu_notifier(&exynos_cpufreq_cpu_up_notifier);
+	register_hotcpu_notifier(&exynos_cpufreq_cpu_down_notifier);
+
+	cpufreq_register_notifier(&exynos_cpufreq_policy_notifier,
+					CPUFREQ_POLICY_NOTIFIER);
 
 	/*
 	 * Enable scale of domain.

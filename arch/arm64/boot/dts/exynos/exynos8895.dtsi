@@ -536,6 +536,16 @@
 
 			min-freq = <455000>;
 
+			/* PM QoS Class ID*/
+			pm_qos-min-class = <3>;
+			pm_qos-max-class = <4>;
+
+			user-default-qos = <715000>;
+
+			/* auto calibration value */
+			auto-cal-freq = <1053000>;
+			auto-cal-duration = <400>;	/* ms */
+
 			dm-constraints {
 				mif-perf {
 					const-type = <CONSTRAINT_MIN>;
@@ -570,6 +580,15 @@
 			dm-type = <DM_CPU_CL1>;
 
 			min-freq = <741000>;
+
+			/* PM QoS Class ID*/
+			pm_qos-min-class = <5>;
+			pm_qos-max-class = <6>;
+			pm_qos-jigbooting = <1469000>;
+
+			/* auto calibration value */
+			auto-cal-freq = <1703000>;
+			auto-cal-duration = <400>;	/* ms */
 
 			dm-constraints {
 				mif-perf {

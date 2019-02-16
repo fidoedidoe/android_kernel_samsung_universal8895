@@ -38,6 +38,23 @@ struct exynos_cpufreq_domain {
 	unsigned int			resume_freq;
 	unsigned int			old;
 
+	/* temporary value */
+	unsigned int			boot_qos;
+
+	/* PM QoS class */
+	unsigned int			pm_qos_min_class;
+	unsigned int			pm_qos_max_class;
+	struct pm_qos_request		min_qos_req;
+	struct pm_qos_request		max_qos_req;
+	struct pm_qos_request		user_min_qos_req;
+	struct pm_qos_request		user_max_qos_req;
+	struct pm_qos_request		user_min_qos_wo_boost_req;
+	struct notifier_block		pm_qos_min_notifier;
+	struct notifier_block		pm_qos_max_notifier;
+
+	/* for sysfs */
+	unsigned int			user_default_qos;
+
 	/* freq boost */
 	bool				boost_supported;
 	unsigned int			*boost_max_freqs;

@@ -1803,6 +1803,7 @@ static int exynos_tmu_probe(struct platform_device *pdev)
 		register_pm_notifier(&exynos_tmu_pm_notifier);
 		data->nb.notifier_call = exynos_tmu_cpus_notifier;
 		register_cpus_notifier(&data->nb);
+		exynos_cpufreq_reset_boot_qos();
 	}
 
 	if (!IS_ERR(data->tzd))
