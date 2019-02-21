@@ -16,12 +16,10 @@
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
-#include <linux/pm_qos.h>
 #include <linux/exynos-ss.h>
 #include <linux/pm_opp.h>
 
 #include <soc/samsung/cal-if.h>
-#include <soc/samsung/exynos-dm.h>
 #include <soc/samsung/ect_parser.h>
 #include <soc/samsung/exynos-earlytmu.h>
 
@@ -66,20 +64,23 @@ struct exynos_cpufreq_domain *find_domain_pm_qos_class(int pm_qos_class)
 	return NULL;
 }
 
-static struct
-exynos_cpufreq_domain *find_domain_cpumask(const struct cpumask *mask)
+struct exynos_cpufreq_domain *find_domain_cpumask(const struct cpumask *mask)
 {
 	struct exynos_cpufreq_domain *domain;
 
 	list_for_each_entry(domain, &domains, list)
-		if (cpumask_subset(mask, &domain->cpus))
+		if (cpumask_intersects(mask, &domain->cpus))
 			return domain;
 
 	pr_err("cannot find cpufreq domain by cpumask\n");
 	return NULL;
 }
 
-static
+struct list_head *get_domain_list(void)
+{
+	return &domains;
+}
+
 struct exynos_cpufreq_domain *find_domain_dm_type(enum exynos_dm_type dm_type)
 {
 	struct exynos_cpufreq_domain *domain;
@@ -90,6 +91,18 @@ struct exynos_cpufreq_domain *find_domain_dm_type(enum exynos_dm_type dm_type)
 
 	pr_err("cannot find cpufreq domain by DVFS Manager type\n");
 	return NULL;
+}
+
+struct exynos_cpufreq_domain *first_domain(void)
+{
+	return list_first_entry(&domains,
+			struct exynos_cpufreq_domain, list);
+}
+
+struct exynos_cpufreq_domain *last_domain(void)
+{
+	return list_last_entry(&domains,
+			struct exynos_cpufreq_domain, list);
 }
 
 static void enable_domain(struct exynos_cpufreq_domain *domain)
@@ -545,6 +558,91 @@ static int exynos_cpufreq_pm_qos_callback(struct notifier_block *nb,
 }
 
 /*********************************************************************
+ *                              FREQ BOOST                           *
+ *********************************************************************/
+static unsigned int get_boost_max_freq(struct exynos_cpufreq_domain *domain)
+{
+	int num_online = cpumask_weight(&domain->online_cpus);
+
+	/* all cpus are down, it returns lowest max frequency */
+	if (!num_online) {
+		int total_cpus = cpumask_weight(&domain->cpus);
+		return domain->boost_max_freqs[total_cpus - 1];
+	}
+
+	return domain->boost_max_freqs[num_online - 1];
+}
+
+static void update_boost_max_freq(struct exynos_cpufreq_domain *domain,
+					struct cpufreq_policy *policy)
+{
+	unsigned int max_freq;
+
+	if (!domain->boost_supported)
+		return;
+
+	max_freq = get_boost_max_freq(domain);
+	if (policy->max != max_freq)
+		cpufreq_verify_within_limits(policy, 0, max_freq);
+}
+
+static int exynos_cpufreq_cpus_callback(struct notifier_block *nb,
+				    unsigned long event, void *data)
+{
+	struct cpumask *mask = (struct cpumask *)data;
+	struct exynos_cpufreq_domain *domain;
+	char buf[10];
+	unsigned long timeout;
+
+	list_for_each_entry(domain, &domains, list) {
+		if (!domain->boost_supported)
+			continue;
+
+		switch (event) {
+		case CPUS_DOWN_COMPLETE:
+		case CPUS_UP_PREPARE:
+			/*
+			 * The first incoming cpu of domain never call cpufreq_update_policy()
+			 * because policy is not available.
+			 */
+			cpumask_and(&domain->online_cpus, cpu_online_mask, mask);
+			cpumask_and(&domain->online_cpus, &domain->online_cpus, &domain->cpus);
+			if (!cpumask_weight(&domain->online_cpus))
+				return NOTIFY_OK;
+
+			/* If it fail to update policy over 50ms, it cancels cpu up */
+			timeout = jiffies + msecs_to_jiffies(50);
+			while (cpufreq_update_policy(cpumask_first(&domain->online_cpus))) {
+				if (event == CPUS_DOWN_COMPLETE)
+					break;
+
+				if (time_after(jiffies, timeout))
+					return NOTIFY_BAD;
+			}
+		}
+
+		if (event == CPUS_UP_PREPARE) {
+			mutex_lock(&domain->lock);
+			if (unlikely(domain->old > get_boost_max_freq(domain))) {
+				scnprintf(buf, sizeof(buf), "%*pbl", cpumask_pr_args(mask));
+				pr_err("Overspeed frequency, %dkHz. Cancel hotplug in CPU%s.\n",
+						domain->old, buf);
+				mutex_unlock(&domain->lock);
+				return NOTIFY_BAD;
+			}
+			mutex_unlock(&domain->lock);
+		}
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block exynos_cpufreq_cpus_notifier = {
+	.notifier_call = exynos_cpufreq_cpus_callback,
+	.priority = INT_MIN,
+};
+
+/*********************************************************************
  *                       EXTERNAL EVENT HANDLER                      *
  *********************************************************************/
 static int exynos_cpufreq_policy_callback(struct notifier_block *nb,
@@ -558,6 +656,7 @@ static int exynos_cpufreq_policy_callback(struct notifier_block *nb,
 
 	switch (event) {
 	case CPUFREQ_ADJUST:
+		update_boost_max_freq(domain, policy);
 		break;
 	case CPUFREQ_NOTIFY:
 		update_dm_constraint(domain, policy);
@@ -699,41 +798,6 @@ void exynos_cpufreq_reset_boot_qos(void)
 }
 EXPORT_SYMBOL(exynos_cpufreq_reset_boot_qos);
 
-/*********************************************************************
- *                          SYSFS INTERFACES                         *
- *********************************************************************/
-/*
- * Log2 of the number of scale size. The frequencies are scaled up or
- * down as the multiple of this number.
- */
-#define SCALE_SIZE	2
-
-static ssize_t show_cpufreq_table(struct kobject *kobj,
-				struct attribute *attr, char *buf)
-{
-	struct exynos_cpufreq_domain *domain;
-	ssize_t count = 0;
-	int i, scale = 0;
-
-	list_for_each_entry_reverse(domain, &domains, list) {
-		for (i = 0; i < domain->table_size; i++) {
-			unsigned int freq = domain->freq_table[i].frequency;
-			if (freq == CPUFREQ_ENTRY_INVALID)
-				continue;
-
-			count += snprintf(&buf[count], 10, "%d ",
-					freq >> (scale * SCALE_SIZE));
-		}
-
-		scale++;
-	}
-
-        count += snprintf(&buf[count - 1], 2, "\n");
-
-	return count - 1;
-}
-
-struct pm_qos_request cpu_online_max_qos_req;
 #ifdef CONFIG_SW_SELF_DISCHARGING
 static ssize_t show_cpufreq_self_discharging(struct kobject *kobj,
 			     struct attribute *attr, char *buf)
@@ -761,9 +825,6 @@ static ssize_t store_cpufreq_self_discharging(struct kobject *kobj, struct attri
 	return count;
 }
 #endif
-
-static struct global_attr cpufreq_table =
-__ATTR(cpufreq_table, S_IRUGO, show_cpufreq_table, NULL);
 
 #ifdef CONFIG_SW_SELF_DISCHARGING
 static struct global_attr cpufreq_self_discharging =
@@ -813,13 +874,11 @@ static void print_domain_info(struct exynos_cpufreq_domain *domain)
 
 static __init void init_sysfs(void)
 {
-	if (sysfs_create_file(power_kobj, &cpufreq_table.attr))
-		pr_err("failed to create cpufreq_table node\n");
-
 #ifdef CONFIG_SW_SELF_DISCHARGING
 	if (sysfs_create_file(power_kobj, &cpufreq_self_discharging.attr))
 		pr_err("failed to create cpufreq_self_discharging node\n");
 #endif
+	return;
 }
 
 static __init int init_table(struct exynos_cpufreq_domain *domain)
@@ -828,6 +887,7 @@ static __init int init_table(struct exynos_cpufreq_domain *domain)
 	unsigned long *table;
 	unsigned int *volt_table;
 	struct exynos_cpufreq_dm *dm;
+	struct exynos_ufc *ufc;
 	int ret = 0;
 
 	/*
@@ -865,6 +925,11 @@ static __init int init_table(struct exynos_cpufreq_domain *domain)
 		/* Initialize table of DVFS manager constraint */
 		list_for_each_entry(dm, &domain->dm_list, list)
 			dm->c.freq_table[index].master_freq = table[index];
+
+		/* Initialize table of UFC */
+		list_for_each_entry(ufc, &domain->ufc_list, list)
+			ufc->info.freq_table[index].master_freq =
+					domain->freq_table[index].frequency;
 	}
 	domain->freq_table[index].driver_data = index;
 	domain->freq_table[index].frequency = CPUFREQ_TABLE_END;
@@ -927,34 +992,6 @@ static __init void set_boot_qos(struct exynos_cpufreq_domain *domain,
 		val = max(val, domain->min_freq);
 		boot_qos = min(val, boot_qos);
 	}
-/*
- * Featuring VDD auto calibration code,
- * because VDD auto calibration will be used selectively depending on the project.
- */
-#ifdef CONFIG_VDD_AUTO_CAL
-	else {
-		unsigned int auto_cal_qos;
-
-		/*
-		 * If thernmal condition is ok
-		 * and auto calibration is defined in Device Tree,
-		 * booting pm_qos should set to defined auto-cal-freq
-		 * for defined auto-cal-duration.
-		 */
-		if (!of_property_read_u32(dn, "auto-cal-freq", &auto_cal_qos) &&
-				!of_property_read_u32(dn, "auto-cal-duration", &val)) {
-			/*
-			 * auto-cal qos use user_qos_req,
-			 * because user_qos_req isn't used in booting time.
-			 */
-			pm_qos_update_request_timeout(&domain->user_min_qos_req,
-					auto_cal_qos, val * USEC_PER_MSEC);
-			pm_qos_update_request_timeout(&domain->user_max_qos_req,
-					auto_cal_qos, val * USEC_PER_MSEC);
-		}
-
-	}
-#endif
 
 	pm_qos_update_request_timeout(&domain->min_qos_req,
 			boot_qos, 40 * USEC_PER_SEC);
@@ -1006,14 +1043,60 @@ static __init int init_pm_qos(struct exynos_cpufreq_domain *domain,
 			domain->pm_qos_min_class, domain->min_freq);
 	pm_qos_add_request(&domain->max_qos_req,
 			domain->pm_qos_max_class, domain->max_freq);
-	pm_qos_add_request(&domain->user_min_qos_req,
-			domain->pm_qos_min_class, domain->min_freq);
-	pm_qos_add_request(&domain->user_max_qos_req,
-			domain->pm_qos_max_class, domain->max_freq);
-	pm_qos_add_request(&domain->user_min_qos_wo_boost_req,
-			domain->pm_qos_min_class, domain->min_freq);
 
 	set_boot_qos(domain, dn);
+
+	return 0;
+}
+
+static int init_constraint_table_ect(struct exynos_cpufreq_domain *domain,
+					struct exynos_cpufreq_dm *dm,
+					struct device_node *dn)
+{
+	void *block;
+	struct ect_minlock_domain *ect_domain;
+	const char *ect_name;
+	unsigned int index, c_index;
+	bool valid_row = false;
+	int ret;
+
+	if (dm->c.constraint_dm_type != DM_MIF)
+		return -EINVAL;
+
+	ret = of_property_read_string(dn, "ect-name", &ect_name);
+	if (ret)
+		return ret;
+
+	block = ect_get_block(BLOCK_MINLOCK);
+	if (!block)
+		return -ENODEV;
+
+	ect_domain = ect_minlock_get_domain(block, (char *)ect_name);
+	if (!ect_domain)
+		return -ENODEV;
+
+	for (index = 0; index < domain->table_size; index++) {
+		unsigned int freq = domain->freq_table[index].frequency;
+
+		for (c_index = 0; c_index < ect_domain->num_of_level; c_index++) {
+			/* find row same as frequency */
+			if (freq == ect_domain->level[c_index].main_frequencies) {
+				dm->c.freq_table[index].constraint_freq
+					= ect_domain->level[c_index].sub_frequencies;
+				valid_row = true;
+				break;
+			}
+		}
+
+		/*
+		 * Due to higher levels of constraint_freq should not be NULL,
+		 * they should be filled with highest value of sub_frequencies of ect
+		 * until finding first(highest) domain frequency fit with main_frequeucy of ect.
+		 */
+		if (!valid_row)
+			dm->c.freq_table[index].constraint_freq
+				= ect_domain->level[0].sub_frequencies;
+	}
 
 	return 0;
 }
@@ -1095,8 +1178,14 @@ static int init_dm(struct exynos_cpufreq_domain *domain,
 		of_property_read_u32(child, "const-type", &dm->c.constraint_type);
 		of_property_read_u32(child, "dm-type", &dm->c.constraint_dm_type);
 
-		if (init_constraint_table_dt(domain, dm, child))
-			continue;
+		if (of_property_read_bool(child, "guidance")) {
+			dm->c.guidance = true;
+			if (init_constraint_table_ect(domain, dm, child))
+				continue;
+		} else {
+			if (init_constraint_table_dt(domain, dm, child))
+				continue;
+		}
 
 		dm->c.table_length = domain->table_size;
 
@@ -1131,12 +1220,49 @@ static __init int init_domain(struct exynos_cpufreq_domain *domain,
 	if (!of_property_read_u32(dn, "min-freq", &val))
 		domain->min_freq = max(domain->min_freq, val);
 
-	/* Default QoS for user */
-	if (!of_property_read_u32(dn, "user-default-qos", &val))
-		domain->user_default_qos = val;
-
 	domain->boot_freq = cal_dfs_get_boot_freq(domain->cal_id);
 	domain->resume_freq = cal_dfs_get_resume_freq(domain->cal_id);
+
+	/* Initialize freq boost */
+	if (domain->boost_supported) {
+		unsigned int i, cpu_count = cpumask_weight(&domain->cpus);
+
+		cal_dfs_get_bigturbo_max_freq(domain->boost_max_freqs);
+		if (of_find_property(dn, "boost_max_freqs", NULL)) {
+			unsigned int *max_freqs;
+
+			max_freqs = kzalloc(sizeof(unsigned int) * cpu_count, GFP_KERNEL);
+			if (!max_freqs)
+				return -ENOMEM;
+
+			of_property_read_u32_array(dn, "boost_max_freqs",
+						max_freqs, cpu_count);
+
+			/*
+			 * If boost_max_freqs property exists in device tree,
+			 * frequency is selected to smaller one.
+			 */
+			for (i = 0; i < cpu_count; i++)
+				domain->boost_max_freqs[i] =
+					min(domain->boost_max_freqs[i], max_freqs[i]);
+
+			kfree(max_freqs);
+		}
+
+		for (i = 0; i < cpu_count; i++) {
+			if (domain->boost_max_freqs[i] < domain->min_freq) {
+				pr_err("Wrong boost maximum frequency\n");
+				domain->boost_supported = false;
+				goto init_table;
+			}
+		}
+
+		/* change domain->max_freq to maximum level in boost table */
+		domain->max_freq = max(domain->max_freq, domain->boost_max_freqs[0]);
+	}
+
+init_table:
+	ufc_domain_init(domain);
 
 	ret = init_table(domain);
 	if (ret)
@@ -1168,6 +1294,7 @@ static __init int early_init_domain(struct exynos_cpufreq_domain *domain,
 
 	/* Initialize list head of DVFS Manager constraints */
 	INIT_LIST_HEAD(&domain->dm_list);
+	INIT_LIST_HEAD(&domain->ufc_list);
 
 	ret = of_property_read_u32(dn, "cal-id", &domain->cal_id);
 	if (ret)
@@ -1184,6 +1311,10 @@ static __init int early_init_domain(struct exynos_cpufreq_domain *domain,
 	cpumask_and(&domain->cpus, &domain->cpus, cpu_possible_mask);
 	if (cpumask_weight(&domain->cpus) == 0)
 		return -ENODEV;
+
+	/* Get whether supporting freq boost */
+	if (of_property_read_bool(dn, "boost_supported"))
+		domain->boost_supported = true;
 
 	return 0;
 }
@@ -1238,6 +1369,14 @@ static __init struct exynos_cpufreq_domain *alloc_domain(struct device_node *dn)
 				* (domain->table_size + 1), GFP_KERNEL);
 	if (!domain->freq_table)
 		goto free;
+
+	/* Allocate boost table */
+	if (domain->boost_supported) {
+		domain->boost_max_freqs = kzalloc(sizeof(unsigned int)
+				* cpumask_weight(&domain->cpus), GFP_KERNEL);
+		if (!domain->boost_max_freqs)
+			goto free;
+	}
 
 	/*
 	 * Allocate DVFS Manager constraints.
@@ -1315,10 +1454,9 @@ static int __init exynos_cpufreq_init(void)
 
 	init_sysfs();
 
-	pm_qos_add_request(&cpu_online_max_qos_req, PM_QOS_CPU_ONLINE_MAX,
-					PM_QOS_CPU_ONLINE_MAX_DEFAULT_VALUE);
 	register_hotcpu_notifier(&exynos_cpufreq_cpu_up_notifier);
 	register_hotcpu_notifier(&exynos_cpufreq_cpu_down_notifier);
+	register_cpus_notifier(&exynos_cpufreq_cpus_notifier);
 
 	cpufreq_register_notifier(&exynos_cpufreq_policy_notifier,
 					CPUFREQ_POLICY_NOTIFIER);

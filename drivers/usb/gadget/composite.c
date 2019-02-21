@@ -27,7 +27,6 @@
 
 #include "u_os_desc.h"
 #include <linux/usb_notify.h>
-
 /**
  * struct usb_os_string - represents OS String to be reported by a gadget
  * @bLength: total length of the entire descritor, always 0x12
@@ -615,7 +614,6 @@ static int bos_desc(struct usb_composite_dev *cdev)
 #else
 	usb_ext->bmAttributes = cpu_to_le32(USB_LPM_SUPPORT | USB_BESL_SUPPORT);
 #endif
-
 	/*
 	 * The Superspeed USB Capability descriptor shall be implemented by all
 	 * SuperSpeed devices.
@@ -1599,7 +1597,6 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 					cdev->desc.bcdUSB = cpu_to_le16(0x0210);
 				}
 			}
-
 			value = min(w_length, (u16) sizeof cdev->desc);
 			memcpy(req->buf, &cdev->desc, value);
 			printk(KERN_DEBUG "usb: GET_DES\n");

@@ -145,6 +145,7 @@ obj-$(CONFIG_OF)		+= of/
 obj-$(CONFIG_SSB)		+= ssb/
 obj-$(CONFIG_BCMA)		+= bcma/
 obj-$(CONFIG_VHOST_RING)	+= vhost/
+obj-$(CONFIG_VHOST)		+= vhost/
 obj-$(CONFIG_VLYNQ)		+= vlynq/
 obj-$(CONFIG_STAGING)		+= staging/
 obj-y				+= platform/
@@ -195,6 +196,13 @@ obj-$(CONFIG_VISION_SUPPORT)    += vision/
 
 # Sensorhub driver
 obj-$(CONFIG_SENSORS_SSP)	+= sensorhub/
+
+# HRM sensor driver
+obj-$(CONFIG_SENSORS_MAX86900)	+= optics/
+obj-$(CONFIG_SENSORS_MAX86902)	+= optics/
+obj-$(CONFIG_SENSORS_ADPD142)	+= optics/
+obj-$(CONFIG_SENSORS_ADPD143)	+= optics/
+obj-$(CONFIG_SENSORS_HRMSENSOR)	+= optics/
 
 # Fingeprint sensor driver
 obj-$(CONFIG_SENSORS_FINGERPRINT)	+= fingerprint/

@@ -1554,6 +1554,9 @@ static inline void wb_dirty_limits(struct dirty_throttle_control *dtc)
  * If we're over `background_thresh' then the writeback threads are woken to
  * perform some writeout.
  */
+
+SIO_PATCH_VERSION(prevent_infinite_writeback, 1, 0, "");
+
 static void balance_dirty_pages(struct address_space *mapping,
 				struct bdi_writeback *wb,
 				unsigned long pages_dirtied)
@@ -1772,6 +1775,11 @@ pause:
 					  period,
 					  pause,
 					  start_time);
+
+		/* Do not sleep if the backing device is removed */
+		if (unlikely(!bdi->dev))
+			return;
+
 		/* Just collecting approximate value. No lock required. */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
 		bdi->last_thresh = thresh;
@@ -2233,29 +2241,13 @@ retry:
 	while (!done && (index <= end)) {
 		int i;
 
-		nr_pages = pagevec_lookup_tag(&pvec, mapping, &index, tag,
-			      min(end - index, (pgoff_t)PAGEVEC_SIZE-1) + 1);
+		nr_pages = pagevec_lookup_range_tag(&pvec, mapping, &index, end,
+				tag);
 		if (nr_pages == 0)
 			break;
 
 		for (i = 0; i < nr_pages; i++) {
 			struct page *page = pvec.pages[i];
-
-			/*
-			 * At this point, the page may be truncated or
-			 * invalidated (changing page->mapping to NULL), or
-			 * even swizzled back from swapper_space to tmpfs file
-			 * mapping. However, page->index will not change
-			 * because we have a reference on the page.
-			 */
-			if (page->index > end) {
-				/*
-				 * can't be range_cyclic (1st pass) because
-				 * end == -1 in that case.
-				 */
-				done = 1;
-				break;
-			}
 
 			done_index = page->index;
 

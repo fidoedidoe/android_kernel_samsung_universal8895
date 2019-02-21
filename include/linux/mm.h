@@ -1831,6 +1831,13 @@ extern void zone_pcp_reset(struct zone *zone);
 /* page_alloc.c */
 extern int min_free_kbytes;
 
+/* vmscan.c */
+extern void reclaim_contig_migrate_range(unsigned long start,
+					 unsigned long end, bool drain);
+/* ion_rbin_heap.c */
+void wake_ion_rbin_heap_prereclaim(void);
+void wake_ion_rbin_heap_shrink(void);
+
 /* nommu.c */
 extern atomic_long_t mmap_pages_allocated;
 extern int nommu_shrink_inode_mappings(struct inode *, size_t, size_t);
@@ -2155,8 +2162,8 @@ static inline struct page *follow_page(struct vm_area_struct *vma,
 #define FOLL_TRIED	0x800	/* a retry, previous pass started an IO */
 #define FOLL_MLOCK	0x1000	/* lock present pages */
 #define FOLL_COW	0x4000	/* internal GUP flag */
-#define FOLL_CMA	0x80000	/* migrate if the page is from cma pageblock */
 #define FOLL_ANON	0x8000	/* don't do file mappings */
+#define FOLL_CMA	0x80000	/* migrate if the page is from cma pageblock */
 
 typedef int (*pte_fn_t)(pte_t *pte, pgtable_t token, unsigned long addr,
 			void *data);

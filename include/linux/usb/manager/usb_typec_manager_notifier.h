@@ -59,6 +59,7 @@ typedef enum {
 	MANAGER_NOTIFY_CCIC_DP,
 	MANAGER_NOTIFY_CCIC_USBDP,
 	MANAGER_NOTIFY_CCIC_SENSORHUB,
+	MANAGER_NOTIFY_CCIC_WACOM,
 
 /* VBUS */
 	MANAGER_NOTIFY_VBUS_USB = 30,
@@ -139,8 +140,8 @@ typedef struct _manager_data_t
 
 	int water_count;
 	int dry_count;
-	int usb210_count;
-	int usb310_count;
+	int usb_highspeed_count;
+	int usb_superspeed_count;
 	int waterChg_count;
 
 	unsigned long waterDet_duration;

@@ -191,9 +191,10 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 				completion = ktime_get();
 				delta_us = ktime_us_delta(completion,
 							  mrq->io_start);
-				blk_update_latency_hist(&host->io_lat_s,
-					(mrq->data->flags & MMC_DATA_READ),
-					delta_us);
+				blk_update_latency_hist(
+					(mrq->data->flags & MMC_DATA_READ) ?
+					&host->io_lat_read :
+					&host->io_lat_write, delta_us);
 			}
 #endif
 			trace_mmc_blk_rw_end(cmd->opcode, cmd->arg, mrq->data);
@@ -1023,6 +1024,45 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 	return stop;
 }
 EXPORT_SYMBOL(__mmc_claim_host);
+
+/**
+ *     mmc_try_claim_host - try exclusively to claim a host
+ *        and keep trying for given time, with a gap of 10ms
+ *     @host: mmc host to claim
+ *     @dealy_ms: delay in ms
+ *
+ *     Returns %1 if the host is claimed, %0 otherwise.
+ */
+int mmc_try_claim_host(struct mmc_host *host, unsigned int delay_ms)
+{
+	int claimed_host = 0;
+	unsigned long flags;
+	int retry_cnt = delay_ms/10;
+	bool pm = false;
+
+	do {
+		spin_lock_irqsave(&host->lock, flags);
+		if (!host->claimed || host->claimer == current) {
+			host->claimed = 1;
+			host->claimer = current;
+			host->claim_cnt += 1;
+			claimed_host = 1;
+			if (host->claim_cnt == 1)
+				pm = true;
+		}
+		spin_unlock_irqrestore(&host->lock, flags);
+		if (!claimed_host)
+			mmc_delay(10);
+	} while (!claimed_host && retry_cnt--);
+
+	if (pm)
+		pm_runtime_get_sync(mmc_dev(host));
+
+	if (host->ops->enable && claimed_host && host->claim_cnt == 1)
+		host->ops->enable(host);
+	return claimed_host;
+}
+EXPORT_SYMBOL(mmc_try_claim_host);
 
 /**
  *	mmc_release_host - release a host
@@ -3012,8 +3052,14 @@ static ssize_t
 latency_hist_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
+	size_t written_bytes;
 
-	return blk_latency_hist_show(&host->io_lat_s, buf);
+	written_bytes = blk_latency_hist_show("Read", &host->io_lat_read,
+			buf, PAGE_SIZE);
+	written_bytes += blk_latency_hist_show("Write", &host->io_lat_write,
+			buf + written_bytes, PAGE_SIZE - written_bytes);
+
+	return written_bytes;
 }
 
 /*
@@ -3031,9 +3077,10 @@ latency_hist_store(struct device *dev, struct device_attribute *attr,
 
 	if (kstrtol(buf, 0, &value))
 		return -EINVAL;
-	if (value == BLK_IO_LAT_HIST_ZERO)
-		blk_zero_latency_hist(&host->io_lat_s);
-	else if (value == BLK_IO_LAT_HIST_ENABLE ||
+	if (value == BLK_IO_LAT_HIST_ZERO) {
+		memset(&host->io_lat_read, 0, sizeof(host->io_lat_read));
+		memset(&host->io_lat_write, 0, sizeof(host->io_lat_write));
+	} else if (value == BLK_IO_LAT_HIST_ENABLE ||
 		 value == BLK_IO_LAT_HIST_DISABLE)
 		host->latency_hist_enabled = value;
 	return count;

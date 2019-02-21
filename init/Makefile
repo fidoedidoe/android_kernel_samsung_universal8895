@@ -4,7 +4,6 @@
 
 obj-y                          := main.o version.o mounts.o
 obj-$(CONFIG_RKP)              += _vmm.o vmm.o ld.o
-AFLAGS__vmm.o := -I$(srctree)
 obj-$(CONFIG_RKP_CFP_JOPP)     += rkp_cfp.o
 obj-y                          += noinitramfs.o
 obj-$(CONFIG_BLK_DEV_INITRD)   += initramfs.o

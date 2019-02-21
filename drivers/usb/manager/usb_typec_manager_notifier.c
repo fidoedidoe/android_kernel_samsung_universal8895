@@ -139,10 +139,10 @@ void set_usb_enumeration_state(int state)
 	if(typec_manager.usb_enum_state != state) {
 		typec_manager.usb_enum_state = state;
 
-		if(typec_manager.usb_enum_state == 0x310)
-			typec_manager.usb310_count++;
-		else if(typec_manager.usb_enum_state == 0x210)
-			typec_manager.usb210_count++;
+		if(typec_manager.usb_enum_state >= 0x300)
+			typec_manager.usb_superspeed_count++;
+		else if(typec_manager.usb_enum_state >= 0x200)
+			typec_manager.usb_highspeed_count++;
 	}
 }
 EXPORT_SYMBOL(set_usb_enumeration_state);
@@ -174,8 +174,8 @@ EXPORT_SYMBOL(get_ccic_dry_count);
 int get_usb210_count(void)
 {
 	int ret;
-	ret = typec_manager.usb210_count;
-	typec_manager.usb210_count = 0;
+	ret = typec_manager.usb_highspeed_count;
+	typec_manager.usb_highspeed_count = 0;
 	return ret;
 }
 EXPORT_SYMBOL(get_usb210_count);
@@ -183,8 +183,8 @@ EXPORT_SYMBOL(get_usb210_count);
 int get_usb310_count(void)
 {
 	int ret;
-	ret = typec_manager.usb310_count;
-	typec_manager.usb310_count = 0;
+	ret = typec_manager.usb_superspeed_count;
+	typec_manager.usb_superspeed_count = 0;
 	return ret;
 }
 EXPORT_SYMBOL(get_usb310_count);
@@ -847,7 +847,13 @@ int manager_notifier_register(struct notifier_block *nb, notifier_fn_t notifier,
 		pr_info("usb: [M] %s BATTERY: cable_type=%d (%s) \n", __func__, m_noti.sub3,
 			typec_manager.muic_cable_type? "MUIC" : "CCIC");
 		nb->notifier_call(nb, m_noti.id, &(m_noti));
-
+  		alternate_mode_start_wait |= 0x100; 
+		if (alternate_mode_start_wait == 0x111) {
+			pr_info("%s: USB & DP & BATTERY driver is registered! Alternate mode Start!\n", __func__);
+#if defined(CONFIG_CCIC_ALTERNATE_MODE)
+			set_enable_alternate_mode(ALTERNATE_MODE_READY | ALTERNATE_MODE_START);
+#endif
+		}
 	} else if(listener == MANAGER_NOTIFY_CCIC_USB) {
 		/* CC_NOTI_USB_STATUS_TYPEDEF */
 		m_noti.src = CCIC_NOTIFY_DEV_MANAGER;
@@ -877,8 +883,8 @@ int manager_notifier_register(struct notifier_block *nb, notifier_fn_t notifier,
 			CCIC_NOTI_USB_STATUS_Print[m_noti.sub2]);
 		nb->notifier_call(nb, m_noti.id, &(m_noti));
 		alternate_mode_start_wait |= 0x1;
-		if(alternate_mode_start_wait == 0x11) {
-			pr_info("usb: [M] %s USB & DP driver is registered! Alternate mode Start!\n", __func__);
+		if(alternate_mode_start_wait == 0x111) {
+			pr_info("usb: [M] %s USB & DP & BATTERY driver is registered! Alternate mode Start!\n", __func__);
 #if defined(CONFIG_CCIC_ALTERNATE_MODE)
 			set_enable_alternate_mode(ALTERNATE_MODE_READY | ALTERNATE_MODE_START);
 #endif
@@ -904,8 +910,8 @@ int manager_notifier_register(struct notifier_block *nb, notifier_fn_t notifier,
 			}
 		}
 		alternate_mode_start_wait |= 0x10;
-		if(alternate_mode_start_wait == 0x11) {
-			pr_info("usb: [M] %s USB & DP driver is registered! Alternate mode Start!\n", __func__);
+		if(alternate_mode_start_wait == 0x111) {
+			pr_info("usb: [M] %s USB & DP & BATTER driver is registered! Alternate mode Start!\n", __func__);
 #if defined(CONFIG_CCIC_ALTERNATE_MODE)
 			set_enable_alternate_mode(ALTERNATE_MODE_READY | ALTERNATE_MODE_START);
 #endif
@@ -1015,8 +1021,8 @@ static int manager_notifier_init(void)
 	typec_manager.wVbus_det = 0;
 	typec_manager.water_count =0;
 	typec_manager.dry_count = 0;
-	typec_manager.usb210_count = 0;
-	typec_manager.usb310_count = 0;
+	typec_manager.usb_highspeed_count = 0;
+	typec_manager.usb_superspeed_count = 0;
 	typec_manager.waterChg_count = 0;
 	typec_manager.waterDet_duration = 0;
 	typec_manager.wVbus_duration = 0;

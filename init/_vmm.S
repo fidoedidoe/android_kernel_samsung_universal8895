@@ -19,6 +19,12 @@
 
 #include <linux/vmm.h>
 
+#ifdef CONFIG_RKP_6G
+#define vmm_ELF_PATH "init/vmm.6g.elf"
+#else
+#define vmm_ELF_PATH "init/vmm.elf"
+#endif
+
 #define SMC_64BIT_RET_MAGIC 0xC2000401
 
 .section .init.text, "ax"
@@ -36,11 +42,7 @@ _vmm_disable:
 
 .global _svmm
 _svmm:
-#ifdef CONFIG_RKP_6G
-.incbin "init/vmm.6g.elf.h"
-#else
-.incbin "init/uh.elf.h"
-#endif
+.incbin vmm_ELF_PATH
 .global _evmm
 _evmm:
 .section .text

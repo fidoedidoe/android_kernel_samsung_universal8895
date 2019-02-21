@@ -16,7 +16,6 @@
 #include <linux/fs.h>
 #include <linux/quotaops.h>
 #include <linux/buffer_head.h>
-#include <linux/android_aid.h>
 #include "ext4.h"
 #include "ext4_jbd2.h"
 #include "mballoc.h"
@@ -249,7 +248,7 @@ unsigned ext4_free_clusters_after_init(struct super_block *sb,
 				       ext4_group_t block_group,
 				       struct ext4_group_desc *gdp)
 {
-	return num_clusters_in_group(sb, block_group) - 
+	return num_clusters_in_group(sb, block_group) -
 		ext4_num_overhead_clusters(sb, block_group, gdp);
 }
 
@@ -586,8 +585,7 @@ static int ext4_has_free_clusters(struct ext4_sb_info *sbi,
 	if (free_clusters >= (sec_rsv + nclusters + dirty_clusters))
 		return 1;
 
-	if (flags & EXT4_MB_USE_EXTRA_ROOT_BLOCKS ||
-			in_group_p(AID_USE_SEC_RESERVED)) {
+	if (ext4_android_claim_sec_r_blocks(flags)) {
 		if (free_clusters >= (rsv + nclusters + dirty_clusters))
 			return 1;
 	}
@@ -595,7 +593,7 @@ static int ext4_has_free_clusters(struct ext4_sb_info *sbi,
 	/* Hm, nope.  Are (enough) root reserved clusters available? */
 	if (uid_eq(sbi->s_resuid, current_fsuid()) ||
 	    (!gid_eq(sbi->s_resgid, GLOBAL_ROOT_GID) && in_group_p(sbi->s_resgid)) ||
-	    capable(CAP_SYS_RESOURCE) || in_group_p(AID_USE_ROOT_RESERVED) ||
+	    capable(CAP_SYS_RESOURCE) || ext4_android_claim_r_blocks(sbi) ||
 	    (flags & EXT4_MB_USE_ROOT_BLOCKS)) {
 
 		if (free_clusters >= (nclusters + dirty_clusters +
@@ -916,4 +914,3 @@ ext4_fsblk_t ext4_inode_to_goal_block(struct inode *inode)
 		colour = (current->pid % 16) * ((last_block - bg_start) / 16);
 	return bg_start + colour;
 }
-
