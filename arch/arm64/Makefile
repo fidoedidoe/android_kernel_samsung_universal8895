@@ -109,8 +109,12 @@ endif
 KBUILD_DTBS	:= dtbs
 
 ifeq ($(CONFIG_EXYNOS_DTBTOOL),y)
+ifeq ($(CONFIG_CAMERA_DREAM2),y)
 KBUILD_DTBS	+= dtb_dream2lte.img
 KBUILD_DTBS	+= dtb_dreamlte.img
+else ifeq ($(CONFIG_CAMERA_GREAT),y)
+KBUILD_DTBS	+= dtb_greatlte.img
+endif
 endif
 
 all:	$(KBUILD_IMAGE) $(KBUILD_DTBS)
@@ -129,7 +133,12 @@ zinstall install: vmlinux
 %.dtb: scripts
 	$(Q)$(MAKE) $(build)=$(boot)/dts $(boot)/dts/$@
 
-PHONY += dtbs dtbs_install dtb_dream2.img dtb_dream.img
+PHONY += dtbs dtbs_install
+ifeq ($(CONFIG_CAMERA_DREAM2),y)
+	PHONY += dtb_dream2.img dtb_dream.img
+else ifeq ($(CONFIG_CAMERA_GREAT),y)
+	PHONY += dtb_great.img
+endif
 
 dtbs: prepare scripts
 	$(Q)$(MAKE) $(build)=$(boot)/dts
@@ -137,11 +146,17 @@ dtbs: prepare scripts
 dtbs_install:
 	$(Q)$(MAKE) $(dtbinst)=$(boot)/dts
 
+ifeq ($(CONFIG_CAMERA_DREAM2),y)
 dtb_dream2lte.img: prepare scripts dtbs
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
 
 dtb_dreamlte.img: prepare scripts dtbs
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
+
+else ifeq ($(CONFIG_CAMERA_GREAT),y)
+dtb_greatlte.img: prepare scripts dtbs
+	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
+endif
 
 Image-dtb Image.gz-dtb: vmlinux scripts dtbs
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@

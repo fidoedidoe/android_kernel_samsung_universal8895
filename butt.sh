@@ -12,8 +12,6 @@ set -e -o pipefail
 DATE=$(date +'%Y%m%d-%H%M')
 NAME=RZ_kernel
 
-DEFCONFIG=exynos8895_defconfig
-
 export ARCH=arm64
 export LOCALVERSION=-${VERSION}${DATE}
 
@@ -96,15 +94,34 @@ function clean() {
 
 function menu() {
 	echo;
-	echo -e "**************************************************************************";
-	echo "   RZ Kernel for Samsung Galaxy S8/S8+ (Exynos) (SM-G95(0/5)(N/F/FD))";
-	echo -e "**************************************************************************";
+	echo -e "***********************************************************************";
+	echo "      RZ Kernel for ${DEVICE_NAME}";
+	echo -e "***********************************************************************";
 	echo "Choices:";
 	echo "1. Cleanup source";
 	echo "2. Build kernel";
 	echo "3. Build kernel then make flashable ZIP";
 	echo "4. Make flashable ZIP package";
 	echo "Leave empty to exit this script (it'll show invalid choice)";
+}
+
+function select_device() {
+	echo "Select which device you want to build for";
+	echo "1. Samsung Galaxy S8/S8+ (Exynos) (SM-G95(0/5)(N/F/FD))";
+	echo "2. Samsung Galaxy Note 8 (Exynos) (SM-N950F/FD)";
+	read -n 1 -p "Choice: " -s device;	
+	case ${device} in
+		1) export DEFCONFIG=exynos8895_dreamlte_dream2lte_defconfig
+		   export DEVICE_NAME="Samsung Galaxy S8/S8+ (Exynos) (SM-G95(0/5)(N/F/FD))"
+		   menu;;
+		2) export DEFCONFIG=exynos8895_greatlte_defconfig
+		   export DEVICE_NAME="Samsung Galaxy Note 8 (Exynos) (SM-N950F/FD)"
+		   menu;;
+		*) echo
+		   echo "Invalid choice entered. Exiting..."
+		   sleep 2;
+		   exit 1;;
+	esac
 }
 
 function main() {
@@ -117,7 +134,7 @@ function main() {
 		echo -e "You have enabled ccache through *export USE_CCACHE=1*, now using ccache...$nocol";
 	fi;
 
-	menu;
+	select_device;
 
 	read -n 1 -p "Select your choice: " -s choice;
 	case ${choice} in
