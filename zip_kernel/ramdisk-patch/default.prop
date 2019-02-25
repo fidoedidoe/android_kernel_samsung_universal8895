@@ -8,10 +8,8 @@ security.perf_harden=1
 ro.adb.secure=1
 ro.allow.mock.location=0
 ro.debuggable=1
-persist.sys.usb.config=none
+persist.sys.usb.config=mtp,adb
 persist.service.adb.enable=1
-persist.service.debuggable=1
-persist.adb.notify=0
 ro.zygote=zygote64_32
 ro.telephony.default_network=9
 ro.supportmodel.mptcp=0
@@ -37,7 +35,6 @@ ro.securestorage.support=false
 ro.boottime.secure_storage=false
 ro.security.vaultkeeper.feature=0
 ro.sec.fle.encryption=false
-ro.config.knox=v30
 wlan.wfd.hdcp=disable
 
 #
