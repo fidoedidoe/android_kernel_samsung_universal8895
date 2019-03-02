@@ -20,7 +20,7 @@ on property:persist.spectrum.profile=0
    write /dev/cpuset/background/cpus 0-1
    write /dev/stune/top-app/schedtune.sched_boost 20
    write /proc/sys/vm/swappiness 80
-   write /sys/kernel/gpu/gpu_max_clock 572000
+   write /sys/kernel/gpu/gpu_max_clock 546000
    write /sys/kernel/gpu/gpu_min_clock 338000
 
 # Performance (based on DrunkSauce Lite)
@@ -32,7 +32,7 @@ on property:persist.spectrum.profile=1
    write /dev/stune/top-app/schedtune.sched_boost 20
    write /proc/sys/vm/swappiness 150
    write /sys/devices/platform/13900000.mali/clock 0
-   write /sys/kernel/gpu/gpu_max_clock 572000
+   write /sys/kernel/gpu/gpu_max_clock 546000
    write /sys/kernel/gpu/gpu_min_clock 338000
 
 # Battery
@@ -55,5 +55,5 @@ on property:persist.spectrum.profile=3
    write /dev/cpuset/background/cpus 0-3
    write /dev/stune/top-app/schedtune.sched_boost 20
    write /proc/sys/vm/swappiness 150
-   write /sys/kernel/gpu/gpu_max_clock 572000
+   write /sys/kernel/gpu/gpu_max_clock 546000
    write /sys/kernel/gpu/gpu_min_clock 385000
