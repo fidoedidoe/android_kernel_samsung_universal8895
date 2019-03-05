@@ -510,14 +510,12 @@ on boot
     chown system system /dev/cpuset/foreground/cpus
     chown system system /dev/cpuset/background/cpus
     chown system system /dev/cpuset/system-background/cpus
-    chown system system /dev/cpuset/surfaceflinger/cpus
     chown system system /dev/cpuset/restricted/cpus
     chown system system /dev/cpuset/cpus
     chmod 664 /dev/cpuset/top-app/cpus
     chmod 664 /dev/cpuset/foreground/cpus
     chmod 664 /dev/cpuset/background/cpus
     chmod 664 /dev/cpuset/system-background/cpus
-    chmod 664 /dev/cpuset/surfaceflinger/cpus
     chmod 664 /dev/cpuset/restricted/cpus
     chmod 664 /dev/cpuset/cpus
     write /dev/cpuset/top-app/cpus 0-7
@@ -528,8 +526,6 @@ on boot
     write /dev/cpuset/background/mems 0
     write /dev/cpuset/system-background/cpus 0-3
     write /dev/cpuset/system-background/mems 0
-    write /dev/cpuset/surfaceflinger/cpus 0,6-7
-    write /dev/cpuset/surfaceflinger/mems 0
 
 on fs
     mount_all /fstab.samsungexynos8895
