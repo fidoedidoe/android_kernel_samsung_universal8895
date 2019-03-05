@@ -625,22 +625,10 @@ chmod 0660 /d/asv_summary
     chmod 664 /dev/cpuset/restricted/cpus
     chmod 664 /dev/cpuset/cpus
     write /dev/cpuset/top-app/cpus 0-7
-<<<<<<< HEAD
-    write /dev/cpuset/foreground/cpus 0-2,4-7
+    write /dev/cpuset/foreground/cpus 0-3,6-7
     write /dev/cpuset/background/cpus 0-1
-    write /dev/cpuset/system-background/cpus 0-2
+    write /dev/cpuset/system-background/cpus 0-3
     write /dev/cpuset/restricted/cpus 0-2
-=======
-    write /dev/cpuset/top-app/mems 0
-    write /dev/cpuset/foreground/cpus 0-3,5-7
-    write /dev/cpuset/foreground/mems 0
-    write /dev/cpuset/background/cpus 0-1
-    write /dev/cpuset/background/mems 0
-    write /dev/cpuset/system-background/cpus 0-1
-    write /dev/cpuset/system-background/mems 0
-    write /dev/cpuset/surfaceflinger/cpus 0,6-7
-    write /dev/cpuset/surfaceflinger/mems 0
->>>>>>> 8756cbf... ramdisk: RIP Spectrum
 
 # FactoryApp(SensorHub)
     chown system radio /efs/FactoryApp/version
