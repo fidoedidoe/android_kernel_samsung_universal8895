@@ -1,0 +1,18 @@
+#!/sbin/sh
+
+. "$env";
+
+print "Cleaning old RZ leftovers...";
+rm -rf $ramdisk/rz;
+rm -f $ramdisk/init.spectrum.rc;
+rm -f $ramdisk/init.spectrum.sh;
+rm -f $ramdisk/init.services.rc;
+rm -f $ramdisk/sbin/rz_kernel.sh;
+rm -f /system/bin/sysinit_cm;
+rm -f /system/etc/init.d/30zram;
+rm -f /system/etc/init.d/40perf;
+rm -f /system/etc/init.d/90userinit;
+rm -rf /data/rz_system;
+
+print "Done!";
+exit 0;

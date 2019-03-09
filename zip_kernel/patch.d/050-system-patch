@@ -2,17 +2,25 @@
 
 . "$env";
 
-cd "${tmp}/system/vendor" && [ "$(ls)" ] || exit 0;
+cd "${tmp}/rz_system" && [ "$(ls)" ] || exit 0;
 
-# Fix permissions
 chmod -R 0755 .;
 
-# Copy files
-cp -rf ./. /system/vendor;
-chmod 0644 /system/vendor/lib/libsecure_storage.so;
-chmod 0644 /system/vendor/lib64/libsecure_storage.so;
-chmod 0644 /system/vendor/firmware/fimc_is_lib.bin;
-chmod 0644 /system/vendor/firmware/fimc_is_rta_2l2_3h1.bin;
+## libsecure_storage patch ##
+print "Setting libsecure_storage permissions...";
+
+# Change permissions
+chmod 0644 ./vendor/lib/libsecure_storage.so;
+chmod 0644 ./vendor/lib64/libsecure_storage.so;
+
+## Vendor fimc binaries patch ##
+print "Setting fimc binaries permissions...";
+chmod 0644 ./vendor/firmware/fimc_is_lib.bin;
+chmod 0644 ./vendor/firmware/fimc_is_rta_2l2_3h1.bin;
+
+print "Copying patched files into data";
+cp -rf ${tmp}/rz_system /data/rz_system;
+chmod 0755 /data/rz_system;
 
 #### Originally written by @djb77 ####
 # Remove unwanted file from /system/app/mcRegistry

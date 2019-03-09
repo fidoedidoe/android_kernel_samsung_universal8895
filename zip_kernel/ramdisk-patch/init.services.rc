@@ -4,7 +4,7 @@
 # This is a common source of Android security bugs.
 #
 
-service sysinit_cm /system/bin/sysinit_cm
+service sysinit_cm /rz/bin/sysinit_cm
     class main
     user root
     group root
@@ -31,6 +31,14 @@ on init
     write /sys/module/cpu_boost/parameters/dynamic_stune_boost 20
     write /sys/module/cpu_boost/parameters/input_boost_ms 100
     write /sys/module/cpu_boost/parameters/input_boost_freq "0:1053000 1:0 2:0 3:0 4:1066000 5:0 6:0 7:0"
+
+on post-fs-data
+    # Bind mount needed files
+    mount auto /data/rz_system/vendor/lib/libsecure_storage.so /system/vendor/lib/libsecure_storage.so bind
+    mount auto /data/rz_system/vendor/lib64/libsecure_storage.so /system/vendor/lib64/libsecure_storage.so bind
+    mount auto /data/rz_system/vendor/firmware/.clminfo /system/vendor/firmware/.clminfo bind
+    mount auto /data/rz_system/vendor/firmware/fimc_is_lib.bin /system/vendor/firmware/fimc_is_lib.bin bind
+    mount auto /data/rz_system/vendor/firmware/fimc_is_rta_2l2_3h1.bin /system/vendor/firmware/fimc_is_rta_2l2_3h1.bin bind
 
 on fs
 
@@ -64,9 +72,9 @@ on property:sys.boot_completed=1
     ## Disable this service on custom kernels as it leads to an increased battery drain.
     stop secure_storage
 
-    exec u:r:init:s0 -- /sbin/rz_kernel.sh
-    exec u:r:su:s0 root root -- /sbin/rz_kernel.sh
-    exec u:r:magisk:s0 root root -- /sbin/rz_kernel.sh
-    exec u:r:supersu:s0 root root -- /sbin/rz_kernel.sh
+    exec u:r:init:s0 -- /rz/rz_kernel.sh
+    exec u:r:su:s0 root root -- /rz/rz_kernel.sh
+    exec u:r:magisk:s0 root root -- /rz/rz_kernel.sh
+    exec u:r:supersu:s0 root root -- /rz/rz_kernel.sh
 
 on shutdown

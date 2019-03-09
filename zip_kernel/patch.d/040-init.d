@@ -4,14 +4,16 @@
 
 cd "$tmp" && [ "$(ls)" ] || exit 0;
 
-# Copy all needed files into system
+# Make init.d path if non-existent
+print "Initializing init.d support...";
+mkdir /system/etc/init.d;
+chmod 755 /system/etc/init.d;
+
+# Copy busybox into system
 cp -f system/bin/busybox /system/bin/busybox;
-cp -f system/bin/sysinit_cm /system/bin/sysinit_cm;
-cp -rf system/etc/init.d /system/etc;
 
 # Change permissions
 chmod 755 /system/bin/busybox;
-chmod 755 /system/bin/sysinit_cm;
-chmod -R 755 /system/etc/init.d;
 
+print "Done!";
 exit 0;
