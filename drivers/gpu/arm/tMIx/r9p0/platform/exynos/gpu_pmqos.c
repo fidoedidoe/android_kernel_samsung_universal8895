@@ -25,6 +25,9 @@
 #include "mali_kbase_platform.h"
 #include "gpu_dvfs_handler.h"
 
+/* Gaming control */
+#include <linux/gaming_control.h>
+
 struct pm_qos_request exynos5_g3d_mif_min_qos;
 struct pm_qos_request exynos5_g3d_mif_max_qos;
 struct pm_qos_request exynos5_g3d_int_qos;
@@ -104,9 +107,11 @@ int gpu_pm_qos_command(struct exynos_context *platform, gpu_pmqos_state state)
 #endif
 		if (!platform->pmqos_int_disable)
 			pm_qos_update_request(&exynos5_g3d_int_qos, platform->table[platform->step].int_freq);
-		pm_qos_update_request(&exynos5_g3d_cpu_cluster0_min_qos, platform->table[platform->step].cpu_freq);
+		if (gaming_mode)
+			pm_qos_update_request(&exynos5_g3d_cpu_cluster0_min_qos, platform->table[platform->step].cpu_freq);
 		if (!platform->boost_is_enabled)
-			pm_qos_update_request(&exynos5_g3d_cpu_cluster1_max_qos, platform->table[platform->step].cpu_max_freq);
+			if (gaming_mode)
+				pm_qos_update_request(&exynos5_g3d_cpu_cluster1_max_qos, platform->table[platform->step].cpu_max_freq);
 		break;
 	case GPU_CONTROL_PM_QOS_RESET:
 		if (!platform->is_pm_qos_init) {
