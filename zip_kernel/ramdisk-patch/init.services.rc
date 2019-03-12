@@ -30,7 +30,7 @@ on init
     # Set input boost
     write /sys/module/cpu_boost/parameters/dynamic_stune_boost 20
     write /sys/module/cpu_boost/parameters/input_boost_ms 100
-    write /sys/module/cpu_boost/parameters/input_boost_freq "0:1053000 1:0 2:0 3:0 4:1066000 5:0 6:0 7:0"
+    write /sys/module/cpu_boost/parameters/input_boost_freq "0:832000 4:1066000"
 
 on post-fs-data
     # Bind mount needed files
