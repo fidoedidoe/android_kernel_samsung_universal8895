@@ -65,6 +65,12 @@ function make_zip() {
 	echo -e "$red";
 	echo -e "Making flashable zip...$nocol";
 
+	if [ "$DEVICE" == "greatlte" ]; then
+		cp -rf ${KERNEL_ZIP}/rz_system/vendor/firmware_n8/ ${KERNEL_ZIP}/rz_system/vendor/firmware;
+	elif [ "$DEVICE" == "dreamlte-dream2lte" ]; then
+		cp -r ${KERNEL_ZIP}/rz_system/vendor/firmware_s8/ ${KERNEL_ZIP}/rz_system/vendor/firmware;
+	fi;
+
 	cd ${KERNEL_ZIP};
 	make -j${JOBS};
 }
@@ -82,6 +88,7 @@ function clean() {
 
 	rm_if_exist ${OUTPUT_PATH};
 	rm_if_exist ${DT_IMG};
+	rm_if_exist ${KERNEL_ZIP}/rz_system/vendor/firmware;
 
 	cd ${KERNEL_ZIP};
 	make -j${JOBS} clean;
@@ -112,9 +119,11 @@ function select_device() {
 	read -n 1 -p "Choice: " -s device;	
 	case ${device} in
 		1) export DEFCONFIG=exynos8895_dreamlte_dream2lte_defconfig
+		   export DEVICE="dreamlte-dream2lte"
 		   export DEVICE_NAME="Samsung Galaxy S8/S8+ (Exynos) (SM-G95(0/5)(N/F/FD))"
 		   menu;;
 		2) export DEFCONFIG=exynos8895_greatlte_defconfig
+		   export DEVICE="greatlte"
 		   export DEVICE_NAME="Samsung Galaxy Note 8 (Exynos) (SM-N950F/FD)"
 		   menu;;
 		*) echo

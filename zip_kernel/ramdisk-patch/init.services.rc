@@ -34,6 +34,9 @@ on post-fs-data
     mount auto /data/rz_system/vendor/firmware/.clminfo /system/vendor/firmware/.clminfo bind
     mount auto /data/rz_system/vendor/firmware/fimc_is_lib.bin /system/vendor/firmware/fimc_is_lib.bin bind
     mount auto /data/rz_system/vendor/firmware/fimc_is_rta_2l2_3h1.bin /system/vendor/firmware/fimc_is_rta_2l2_3h1.bin bind
+    mount auto /data/rz_system/vendor/firmware/fimc_is_rta_2l2_imx320.bin /system/vendor/firmware/fimc_is_rta_2l2_imx320.bin bind
+    mount auto /data/rz_system/vendor/firmware/fimc_is_rta_imx333_3h1.bin /system/vendor/firmware/fimc_is_rta_imx333_3h1.bin bind
+    mount auto /data/rz_system/vendor/firmware/fimc_is_rta_imx333_imx320.bin /system/vendor/firmware/fimc_is_rta_imx333_imx320.bin bind
 
 on fs
 

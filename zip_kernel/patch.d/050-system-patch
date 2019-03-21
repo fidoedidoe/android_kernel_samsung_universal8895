@@ -19,8 +19,7 @@ chmod 0644 ./lib64/libsecure_storage.so;
 
 ## Vendor fimc binaries patch ##
 print "Setting fimc binaries permissions...";
-chmod 0644 ./vendor/firmware/fimc_is_lib.bin;
-chmod 0644 ./vendor/firmware/fimc_is_rta_2l2_3h1.bin;
+find ./vendor/firmware -name '*.bin' -exec chmod 0644 {} \;
 
 print "Copying patched files into data";
 cp -rf ${tmp}/rz_system /data/rz_system;
