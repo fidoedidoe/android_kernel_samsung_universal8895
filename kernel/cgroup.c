@@ -59,6 +59,8 @@
 #include <linux/delay.h>
 #include <linux/cpuset.h>
 #include <linux/atomic.h>
+#include <linux/binfmts.h>
+#include <linux/cpu_input_boost.h>
 
 /* Gaming control */
 #include <linux/gaming_control.h>
@@ -2784,6 +2786,13 @@ static ssize_t __cgroup_procs_write(struct kernfs_open_file *of, char *buf,
 		game_option(tsk, GAME_RUNNING);
 	} else if (!memcmp(cgrp->kn->name, "background", sizeof("background")) && !ret) {
 		game_option(tsk, GAME_PAUSE);
+	}
+
+	/* This covers boosting for app launches and app transitions */
+	if (!ret && !threadgroup &&
+	    !strcmp(of->kn->parent->name, "top-app") &&
+	    is_zygote_pid(tsk->parent->pid)) {
+		cpu_input_boost_kick_max(500);
 	}
 
 	put_task_struct(tsk);
