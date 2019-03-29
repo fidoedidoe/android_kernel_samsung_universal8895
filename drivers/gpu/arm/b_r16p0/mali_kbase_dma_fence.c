@@ -437,18 +437,12 @@ void kbase_dma_fence_signal(struct kbase_jd_atom *katom)
 
 void kbase_dma_fence_term(struct kbase_context *kctx)
 {
-	destroy_workqueue(kctx->dma_fence.wq);
-	kctx->dma_fence.wq = NULL;
+	/* No-op */
 }
 
 int kbase_dma_fence_init(struct kbase_context *kctx)
 {
 	INIT_LIST_HEAD(&kctx->dma_fence.waiting_resource);
-
-	kctx->dma_fence.wq = alloc_workqueue("mali-fence-%d",
-					     WQ_UNBOUND, 1, kctx->pid);
-	if (!kctx->dma_fence.wq)
-		return -ENOMEM;
 
 	return 0;
 }
