@@ -2,7 +2,7 @@ NAME ?= RZ_kernel
 
 DATE := $(shell date +'%Y%m%d-%H%M')
 
-ZIP := $(NAME)-$(DATE).zip
+ZIP := $(NAME)-$(DEVICE)-$(DATE).zip
 
 EXCLUDE := \
 	Makefile README.md *.git* "$(NAME)-"*.zip* \
