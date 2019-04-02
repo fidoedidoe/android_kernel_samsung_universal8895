@@ -4667,7 +4667,7 @@
 					type = "active";
 				};
 				mngs_alert1: mngs-alert1 {
-					temperature = <83000>; /* millicelsius */
+					temperature = <67000>; /* millicelsius */
 					hysteresis = <5000>; /* millicelsius */
 					type = "passive";
 				};
