@@ -6593,10 +6593,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 					    sysctl_sched_cstate_aware &&
 					    (best_idle_cstate <= idle_idx))
 						continue;
-					if ((capacity_orig == target_capacity) &&
-					    sysctl_sched_cstate_aware &&
-					    (best_idle_cstate <= idle_idx))
-						continue;
 
 					target_capacity = capacity_orig;
 					best_idle_cstate = idle_idx;
