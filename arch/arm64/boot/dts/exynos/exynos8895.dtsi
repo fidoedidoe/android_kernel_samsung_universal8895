@@ -831,22 +831,22 @@
 		                    455000    91   94   1  1352000  1248000     1937000
 		                    385000    70   91   1  1014000  1053000     1937000
 		                    338000    25   70   1   845000   949000     1937000
-		                    260000     0   25   1   421000        0     0 >;
+		                    260000     0   25   1   421000   598000     1937000 >;
 		gpu_sustainable_info = <0 0 0 0 0>; /* Not used */
 		gpu_pmqos_cpu_cluster_num = <2>;
 		gpu_pmu_status_reg_offset = <0x40E4>;
 		gpu_pmu_status_local_pwr_mask = <0xF>; /*0xF << 0*/
 		gpu_max_clock = <572000>;
 		gpu_max_clock_limit = <572000>;
-		gpu_min_clock = <338000>;
-		gpu_dvfs_start_clock = <338000>;
-		gpu_dvfs_bl_config_clock = <338000>;
+		gpu_min_clock = <260000>;
+		gpu_dvfs_start_clock = <260000>;
+		gpu_dvfs_bl_config_clock = <260000>;
 		gpu_default_voltage = <800000>;
 		gpu_cold_minimum_vol = <0>;
 		gpu_voltage_offset_margin = <37500>;
 		gpu_tmu_control = <0>;
 		gpu_temp_throttling_level_num = <6>;
-		gpu_temp_throttling = <572000 546000 455000 385000 338000 338000>;
+		gpu_temp_throttling = <572000 546000 455000 385000 338000 260000>;
 		gpu_power_coeff = <625>;
 		gpu_dvfs_time_interval = <5>; /*1 tick : 10ms*/
 		gpu_default_wakeup_lock = <1>;
@@ -860,7 +860,7 @@
 		gpu_pmqos_int_disable = <1>;
 		gpu_pmqos_mif_max_clock = <1794000>;
 		gpu_pmqos_mif_max_clock_base = <572000>;
-		gpu_cl_dvfs_start_base = <338000>;
+		gpu_cl_dvfs_start_base = <260000>;
 		gpu_debug_level = <3>; /*DEBUG(1) INFO(2) WARNING(3) ERROR(4)*/
 		gpu_trace_level = <8>; /*TRACE_ALL*/
 		gpu_mo_min_clock = <455000>;
@@ -4620,13 +4620,14 @@
 		sensing_mode = "max";
 		/* gpu cooling related table */
 		/* flags, driver_data(index), frequency */
-		gpu_idx_num = <6>;
+		gpu_idx_num = <7>;
 		gpu_cooling_table = < 0 0 572000
 				      0 1 546000
 				      0 2 455000
 				      0 3 385000
 				      0 4 338000
-				      0 5 TABLE_END >;
+				      0 5 260000
+				      0 6 TABLE_END >;
 		#include "exynos8895-tmu-sensor-conf.dtsi"
 	};
 
