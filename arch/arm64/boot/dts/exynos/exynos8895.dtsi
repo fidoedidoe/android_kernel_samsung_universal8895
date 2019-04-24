@@ -4804,7 +4804,7 @@
 					type = "active";
 				};
 				gpu_alert0: gpu-alert0 {
-					temperature = <78000>; /* millicelsius */
+					temperature = <86000>; /* millicelsius */
 					hysteresis = <2000>; /* millicelsius */
 					type = "active";
 				};
