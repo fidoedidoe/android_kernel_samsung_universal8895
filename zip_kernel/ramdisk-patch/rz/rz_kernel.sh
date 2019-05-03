@@ -1,19 +1,10 @@
 #!/system/bin/sh
 
 # Set Variables
-if [ -e /sbin/magisk.bin ]; then
-	# Found Magisk 18.1 and newer. Use symlinked resetprop
-	RESETPROP="/sbin/resetprop -v -n"
-else
-	RESETPROP="/sbin/magisk resetprop -v -n"
-fi
+RESETPROP="/sbin/magisk resetprop -v -n"
 
 # Mount
-mount -o remount,rw -t auto /
-mount -t rootfs -o remount,rw rootfs
-mount -o remount,rw -t auto /system
-mount -o remount,rw /data
-mount -o remount,rw /cache
+mount -o remount,rw /
 
 # Set KNOX to 0x0 on running /system
 $RESETPROP ro.boot.warranty_bit "0"
@@ -64,9 +55,5 @@ fi
 ln -sf /rz/add_game /sbin/add_game;
 
 # Unmount
-mount -o remount,ro -t auto /
-mount -t rootfs -o remount,ro rootfs
-mount -o remount,ro -t auto /system
-mount -o remount,rw /data
-mount -o remount,rw /cache
+mount -o remount,ro /
 

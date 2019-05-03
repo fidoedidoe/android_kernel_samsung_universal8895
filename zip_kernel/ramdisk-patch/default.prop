@@ -10,7 +10,7 @@ ro.adb.secure=0
 ro.allow.mock.location=0
 ro.debuggable=1
 ro.telephony.default_network=9
-ro.supportmodel.mptcp=0
+ro.supportmodel.mptcp=1
 ro.radio.noril=no
 ro.telephony.default_cdma_sub=0
 persist.radio.sib16_support=1
@@ -41,18 +41,11 @@ ro.setupwizard.mode=OPTIONAL
 ro.com.google.gmsversion=9_201812
 ro.vndk.version=28
 ro.vndk.lite=true
-persist.sys.usb.config=mtp,adb
-persist.service.adb.enable=1
+persist.sys.usb.config=mtp
 ro.zygote=zygote64_32
 ro.vendor.epdg.support=true
 ro.logd.size.stats=64K
 log.tag.stats_log=I
-
-ro.securestorage.support=false
-ro.boottime.secure_storage=false
-ro.security.vaultkeeper.feature=0
-ro.sec.fle.encryption=false
-wlan.wfd.hdcp=disable
 
 #
 # BOOTIMAGE_BUILD_PROPERTIES
