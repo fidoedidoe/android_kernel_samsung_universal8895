@@ -51,9 +51,6 @@ if [ ! -f /data/system/users/0/personalist.xml ]; then
 	chown system:system /data/system/users/0/personalist.xml
 fi
 
-# Symlink RZ shell scripts
-ln -sf /rz/add_game /sbin/add_game;
-
 # Unmount
 mount -o remount,ro /
 
