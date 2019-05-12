@@ -37,6 +37,22 @@ static int last_max_limit = -1;
 static int sse_mode;
 static int dvfs_disable = 0;
 
+unsigned int big_throttle_limit = 0;
+unsigned int little_throttle_limit = 0;
+
+bool is_throttle_limit(unsigned int clipped_freq, int cpu)
+{
+	unsigned int freq = 0;
+	if (cpumask_test_cpu(cpu, cpu_perf_mask)) {
+		freq = big_throttle_limit;
+	} else {
+		freq = little_throttle_limit;
+	}
+
+	return (clipped_freq < freq);
+}
+EXPORT_SYMBOL(is_throttle_limit);
+
 static ssize_t show_cpufreq_table(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
@@ -581,6 +597,26 @@ static ssize_t store_dvfs_disable(struct kobject *kobj, struct kobj_attribute *a
 	return count;
 }
 
+static ssize_t show_throttle_limit(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return snprintf(buf, 16, "%u:%u", big_throttle_limit, little_throttle_limit);
+}
+
+static ssize_t store_throttle_limit(struct kobject *kobj, struct kobj_attribute *attr,
+					const char *buf, size_t count)
+{
+	unsigned int big_throttle, little_throttle;
+
+	if (sscanf(buf, "%u:%u", &big_throttle, &little_throttle) != 2)
+		return -EINVAL;
+
+	big_throttle_limit = big_throttle;
+	little_throttle_limit = little_throttle;
+
+	return count;
+}
+
 static struct kobj_attribute cpufreq_table =
 __ATTR(cpufreq_table, 0444, show_cpufreq_table, NULL);
 static struct kobj_attribute cpufreq_min_limit =
@@ -598,6 +634,10 @@ __ATTR(execution_mode_change, 0644,
 static struct kobj_attribute disable_dvfs =
 __ATTR(disable_dvfs, 0644,
 		show_dvfs_disable, store_dvfs_disable);
+static struct kobj_attribute throttle_limit =
+__ATTR(throttle_limit, 0644,
+		show_throttle_limit, store_throttle_limit);
+
 
 static __init void init_sysfs(void)
 {
@@ -618,6 +658,9 @@ static __init void init_sysfs(void)
 
 	if (sysfs_create_file(power_kobj, &disable_dvfs.attr))
 		pr_err("failed to create disable_dvfs node\n");
+
+	if (sysfs_create_file(power_kobj, &throttle_limit.attr))
+		pr_err("failed to create throttle_limit node\n");
 }
 
 static int parse_ufc_ctrl_info(struct exynos_cpufreq_domain *domain,
