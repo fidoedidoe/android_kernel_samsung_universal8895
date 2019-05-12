@@ -27,6 +27,9 @@ on init
     write /sys/devices/system/cpu/cpufreq/policy4/pwrutilx/up_rate_limit_us 500
     write /sys/devices/system/cpu/cpufreq/policy4/pwrutilx/down_rate_limit_us 20000
 
+    # CPU thermal throttle limit
+    write /sys/power/throttle_limit "1807000:1248000"
+
 on post-fs-data
     # Bind mount needed files
     mount auto /data/rz_system/lib/libsecure_storage.so /system/lib/libsecure_storage.so bind
