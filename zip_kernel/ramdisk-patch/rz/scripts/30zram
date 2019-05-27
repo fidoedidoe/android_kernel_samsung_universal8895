@@ -50,7 +50,7 @@ done;
 # Calculate memory to use for zram (1/2 of ram)
 totalmem=$(busybox free | grep -e "^Mem:" | busybox sed -e 's/^Mem: *//' -e 's/  *.*//')
 echo "Total RAM available: $totalmem"
-mem=$(((totalmem / 2 / ${num_cpu})))
+mem=$(((totalmem * 3 / 4 / ${num_cpu})))
 echo "Total per-zram-device size: $mem"
 
 # Now let's start
