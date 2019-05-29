@@ -15,13 +15,6 @@ echo 60 > /proc/sys/vm/swappiness;
 # Set page-cluster to lowest to maximize performance
 echo 0 > /proc/sys/vm/page-cluster;
 
-# Do we use vnswap?
-vnswap_prop=$(getprop persist.vnswap.enabled false);
-if [ "${vnswap_prop}" = "true" ]; then
-	start swapon;
-	exit 1;
-fi;
-
 zram_pos=""
 
 # How many CPU cores do we have? (get fixed numer of one for now)
