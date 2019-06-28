@@ -50,6 +50,11 @@
 #define S5P_MFC_DEC_DRM_NAME	"s5p-mfc-dec-secure"
 #define S5P_MFC_ENC_DRM_NAME	"s5p-mfc-enc-secure"
 
+static struct global_boost_request gb_req_user =
+{
+	.name = "mfc_gb_req_user",
+};
+
 int debug;
 module_param(debug, int, S_IRUGO | S_IWUSR);
 
@@ -352,7 +357,7 @@ static int s5p_mfc_open(struct file *file)
 		if (dev->num_enc == 1) {
 			disable_priv_cpuidle();
 			mfc_debug(1, "call cpuidle_pause()\n");
-			//set_hmp_family_boost(1);
+			global_boost_update_request(&gb_req_user, 100);
 			mfc_debug(1, "call set_hmp_family_boost(1)\n");
 		}
 	}
@@ -598,7 +603,7 @@ err_ctx_alloc:
 		dev->num_enc--;
 		mfc_debug(1, "encoder count: %c\n", dev->num_enc);
 		if (dev->num_enc == 0) {
-			//set_hmp_family_boost(0);
+			global_boost_update_request(&gb_req_user, 0);
 			mfc_debug(1, "call set_hmp_family_boost(0)\n");
 			enable_priv_cpuidle();
 			mfc_debug(1, "call cpuidle_resume()\n");
@@ -697,7 +702,7 @@ static int s5p_mfc_release(struct file *file)
 		dev->num_enc--;
 		mfc_debug(1, "encoder count: %c\n", dev->num_enc);
 		if (dev->num_enc == 0) {
-			//set_hmp_family_boost(0);
+			global_boost_update_request(&gb_req_user, 0);
 			mfc_debug(1, "call set_hmp_family_boost(0)\n");
 			enable_priv_cpuidle();
 			mfc_debug(1, "call cpuidle_resume()\n");
@@ -776,6 +781,7 @@ static int s5p_mfc_release(struct file *file)
 		queue_work(dev->butler_wq, &dev->butler_work);
 
 	mutex_unlock(&dev->mfc_mutex);
+
 	return ret;
 
 err_release_try:

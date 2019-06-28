@@ -27,6 +27,11 @@
 #include <linux/interrupt.h>
 #include <linux/sec_argos.h>
 
+static struct global_boost_request gb_req_user =
+{
+	.name = "argos_boost",
+};
+
 #define ARGOS_NAME "argos"
 #define TYPE_SHIFT 4
 #define TYPE_MASK_BIT ((1 << TYPE_SHIFT) - 1)
@@ -375,14 +380,14 @@ int argos_hmpboost_apply(int dev_num, bool enable)
 	if (enable) {
 		/* disable -> enable */
 		if (*hmpboost_enable == false) {
-			//set_hmp_boost(true);
+			global_boost_update_request(&gb_req_user, 100);
 			*hmpboost_enable = true;
 			pr_info("%s: hmp boost enable [%d]\n", __func__, dev_num);
 		}
 	} else {
 		/* enable -> disable */
 		if (*hmpboost_enable == true) {
-			//set_hmp_boost(false);
+			global_boost_update_request(&gb_req_user, 0);
 			*hmpboost_enable = false;
 			pr_info("%s: hmp boost disable [%d]\n", __func__, dev_num);
 		}
