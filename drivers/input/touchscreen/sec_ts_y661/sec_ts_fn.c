@@ -254,13 +254,13 @@ static ssize_t read_raw_check_show(struct device *dev,
 
 	for (ii = 0; ii < (ts->rx_count * ts->tx_count - 1); ii++) {
 		snprintf(temp, CMD_RESULT_WORD_LEN, "%d ", ts->pFrame[ii]);
-		strncat(buffer, temp, CMD_RESULT_WORD_LEN);
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 
 		memset(temp, 0x00, CMD_RESULT_WORD_LEN);
 	}
 
 	snprintf(temp, CMD_RESULT_WORD_LEN, "%d", ts->pFrame[ii]);
-	strncat(buffer, temp, CMD_RESULT_WORD_LEN);
+	strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 
 	ret = snprintf(buf, ts->rx_count * ts->tx_count * 6, buffer);
 	vfree(buffer);
@@ -605,9 +605,9 @@ static ssize_t read_pressure_raw_check_show(struct device *dev,
 			char tmp[20] = {0};
 			snprintf(tmp, sizeof(tmp), "\"TP%02d%c\":\"%d\"",
 					data[i], loc[j], ts->pressure_data[data[i]][j]);
-			strncat(buff, tmp, sizeof(tmp));
+			strncat(buff, tmp, sizeof(buff) - strlen(buff) - 1);
 			if (i < 3 || j < PRESSURE_CHANNEL_NUM - 1)
-				strncat(buff, ",", 2);
+				strcat(buff, ",");
 		}
 	}
 	input_info(true, &ts->client->dev, "%s: %s\n", __func__, buff);
@@ -705,7 +705,7 @@ static ssize_t get_lp_dump(struct device *dev, struct device_attribute *attr, ch
 			snprintf(buff, sizeof(buff),
 					"%d: %04x%04x%04x%04x\n",
 					string_addr, data0, data1, data2, data3);
-			strncat(buf, buff, sizeof(buff));
+			strncat(buf, buff, sizeof(buf) - strlen(buf) - 1);
 		}
 	}
 

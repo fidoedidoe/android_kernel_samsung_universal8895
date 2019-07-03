@@ -289,13 +289,13 @@ static ssize_t read_raw_check_show(struct device *dev,
 
 	for (ii = 0; ii < (info->SenseChannelLength * info->ForceChannelLength - 1); ii++) {
 		snprintf(temp, 6, "%d ", info->pFrame[ii]);
-		strncat(buffer, temp, 6);
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 
 		memset(temp, 0x00, 10);
 	}
 
 	snprintf(temp, 6, "%d", info->pFrame[ii]);
-	strncat(buffer, temp, 6);
+	strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 
 	ret = snprintf(buf, info->SenseChannelLength * info->ForceChannelLength * 6, buffer);
 	vfree(buffer);
@@ -627,16 +627,16 @@ static ssize_t read_ambient_channel_info_show(struct device *dev,
 	for (i = 0; i < info->ForceChannelLength; i++) {
 		snprintf(temp, sizeof(temp), "\"TAMB_TX%02d\":\"%d\",",
 				i, info->baseline_tx[i]);
-		strncat(buffer, temp, sizeof(temp));
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 	}
 
 	for (i = 0; i < info->SenseChannelLength; i++) {
 		snprintf(temp, sizeof(temp), "\"TAMB_RX%02d\":\"%d\"",
 				i, info->baseline_rx[i]);
 		if (strnlen(buffer, (info->ForceChannelLength + info->SenseChannelLength) * 25) <= 893) {
-			strncat(buffer, temp, sizeof(temp));
+			strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 			if (i  != (info->SenseChannelLength - 1))
-				strncat(buffer, ",", 2);
+				strcat(buffer, ",");
 		}
 	}
 
@@ -667,15 +667,15 @@ static ssize_t read_ambient_channel_delta_show(struct device *dev,
 	for (i = 0; i < info->ForceChannelLength; i++) {
 		snprintf(temp, sizeof(temp), "\"TCDT%02d\":\"%d\",",
 				i, info->baseline_tx_delta[i]);
-		strncat(buffer, temp, sizeof(temp));
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 	}
 
 	for (i = 0; i < info->SenseChannelLength; i++) {
 		snprintf(temp, sizeof(temp), "\"TCDR%02d\":\"%d\"",
 				i, info->baseline_rx_delta[i]);
-		strncat(buffer, temp, sizeof(temp));
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 		if (i  != (info->SenseChannelLength - 1))
-			strncat(buffer, ",", 2);
+			strcat(buffer, ",");
 	}
 
 	ret = snprintf(buf, (info->ForceChannelLength + info->SenseChannelLength) * 25, buffer);
@@ -775,7 +775,7 @@ static ssize_t get_lp_dump(struct device *dev, struct device_attribute *attr, ch
 			snprintf(buff, sizeof(buff),
 					"%d: %04x%04x%04x%04x\n",
 					(string_addr - FTS_CMD_STRING_ACCESS), data0, data1, data2, data3);
-			strncat(buf, buff, sizeof(buff));
+			strncat(buf, buff, sizeof(buf) - strlen(buf) - 1);
 		}
 	}
 
@@ -1886,7 +1886,7 @@ static void get_strength_all_data(void *device_data)
 		for (j = 0; j < info->SenseChannelLength; j++) {
 
 			snprintf(buff, sizeof(buff), "%d,", info->pFrame[(i * info->SenseChannelLength) + j]);
-			strncat(all_strbuff, buff, sizeof(buff));
+			strncat(all_strbuff, buff, sizeof(all_strbuff) - strlen(all_strbuff) - 1);
 		}
 	}
 
@@ -2805,7 +2805,7 @@ static void get_cx_all_data(void *device_data)
 			for(i = 0; i < rx_num; i++){
 				info->cx_data[(j * rx_num) + i] = ReadData[j][i + 1];
 				snprintf(buff, sizeof(buff), "%d,", ReadData[j][i + 1]);
-				strncat(all_strbuff, buff, sizeof(buff));
+				strncat(all_strbuff, buff, sizeof(all_strbuff) - strlen(all_strbuff) - 1);
 			}
 		}
 	}

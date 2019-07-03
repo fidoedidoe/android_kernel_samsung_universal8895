@@ -253,13 +253,13 @@ static ssize_t read_raw_check_show(struct device *dev,
 
 	for (ii = 0; ii < (ts->rx_count * ts->tx_count - 1); ii++) {
 		snprintf(temp, CMD_RESULT_WORD_LEN, "%d ", ts->pFrame[ii]);
-		strncat(buffer, temp, CMD_RESULT_WORD_LEN);
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 
 		memset(temp, 0x00, CMD_RESULT_WORD_LEN);
 	}
 
 	snprintf(temp, CMD_RESULT_WORD_LEN, "%d", ts->pFrame[ii]);
-	strncat(buffer, temp, CMD_RESULT_WORD_LEN);
+	strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 
 	ret = snprintf(buf, ts->rx_count * ts->tx_count * 6, buffer);
 	vfree(buffer);
@@ -604,9 +604,9 @@ static ssize_t read_pressure_raw_check_show(struct device *dev,
 			char tmp[20] = {0};
 			snprintf(tmp, sizeof(tmp), "\"TP%02d%c\":\"%d\"",
 					data[i], loc[j], ts->pressure_data[data[i]][j]);
-			strncat(buff, tmp, sizeof(tmp));
+			strncat(buff, tmp, sizeof(buff) - strlen(buff) - 1);
 			if (i < 3 || j < PRESSURE_CHANNEL_NUM - 1)
-				strncat(buff, ",", 2);
+				strcat(buff, ",");
 		}
 	}
 	input_info(true, &ts->client->dev, "%s: %s\n", __func__, buff);
@@ -650,15 +650,15 @@ static ssize_t read_ambient_channel_info_show(struct device *dev,
 	for (i = 0; i < ts->tx_count; i++) {
 		snprintf(temp, sizeof(temp), "\"TAMB_TX%02d\":\"%d\",",
 				i, ts->ambient_tx[i]);
-		strncat(buffer, temp, sizeof(temp));
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 	}
 
 	for (i = 0; i < ts->rx_count; i++) {
 		snprintf(temp, sizeof(temp), "\"TAMB_RX%02d\":\"%d\"",
 				i, ts->ambient_rx[i]);
-		strncat(buffer, temp, sizeof(temp));
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 		if (i  != (ts->rx_count - 1))
-			strncat(buffer, ",", 2);
+			strcat(buffer, ",");
 	}
 
 	ret = snprintf(buf, (ts->tx_count + ts->rx_count) * 25, buffer);
@@ -688,15 +688,15 @@ static ssize_t read_ambient_channel_delta_show(struct device *dev,
 	for (i = 0; i < ts->tx_count; i++) {
 		snprintf(temp, sizeof(temp), "\"TCDT%02d\":\"%d\",",
 				i, ts->ambient_tx_delta[i]);
-		strncat(buffer, temp, sizeof(temp));
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 	}
 
 	for (i = 0; i < ts->rx_count; i++) {
 		snprintf(temp, sizeof(temp), "\"TCDR%02d\":\"%d\"",
 				i, ts->ambient_rx_delta[i]);
-		strncat(buffer, temp, sizeof(temp));
+		strncat(buffer, temp, sizeof(buffer) - strlen(buffer) - 1);
 		if (i  != (ts->rx_count - 1))
-			strncat(buffer, ",", 2);
+			strcat(buffer, ",");
 	}
 
 	ret = snprintf(buf, (ts->tx_count + ts->rx_count) * 25, buffer);
@@ -780,7 +780,7 @@ static ssize_t get_lp_dump(struct device *dev, struct device_attribute *attr, ch
 			snprintf(buff, sizeof(buff),
 					"%d: %04x%04x%04x%04x\n",
 					string_addr, data0, data1, data2, data3);
-			strncat(buf, buff, sizeof(buff));
+			strncat(buf, buff, sizeof(buf) - strlen(buf) - 1);
 		}
 	}
 
@@ -836,21 +836,21 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "mutual,%d,", data[0] & 0x01 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "hover,%d,", data[0] & 0x02 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "cover,%d,", data[0] & 0x04 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "glove,%d,", data[0] & 0x08 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "stylus,%d,", data[0] & 0x10 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "palm,%d,", data[0] & 0x20 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "wet,%d,", data[0] & 0x40 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "prox,%d,", data[0] & 0x80 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_i2c_read(ts, SEC_TS_CMD_SET_POWER_MODE, data, 1);
@@ -858,13 +858,13 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "npm,%d,", data[0] == 0 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "lpm,%d,", data[0] == 1 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "test,%d,", data[0] == 2 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "flash,%d,", data[0] == 3 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_i2c_read(ts, SET_TS_CMD_SET_CHARGER_MODE, data, 1);
@@ -872,11 +872,11 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "no_charge,%d,", data[0] == 0 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "wire_charge,%d,", data[0] == 1 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 	snprintf(temp, sizeof(temp), "wireless_charge,%d,", data[0] == 2 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_i2c_read(ts, SET_TS_CMD_SET_NOISE_MODE, data, 1);
@@ -884,7 +884,7 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "noise,%d,", data[0]);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_i2c_read(ts, SEC_TS_CMD_SET_COVERTYPE, data, 1);
@@ -892,7 +892,7 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "cover_type,%d,", data[0]);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	memset(data, 0x00, 2);
 	ret = ts->sec_ts_read_sponge(ts, data, 1);
@@ -900,16 +900,16 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "pressure,%d,", data[0] & 0x40 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	snprintf(temp, sizeof(temp), "aod,%d,", data[0] & 0x04 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	snprintf(temp, sizeof(temp), "spay,%d,", data[0] & 0x02 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	snprintf(temp, sizeof(temp), "singletap,%d,", data[0] & 0x08 ? 1 : 0);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	data[0] = 0;
 
@@ -918,7 +918,7 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "dex,%d,", data[0]);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	data[0] = 0;
 
@@ -927,7 +927,7 @@ static ssize_t ic_status_show(struct device *dev,
 		return snprintf(buf, SEC_CMD_BUF_SIZE, "%s\n", buff);
 
 	snprintf(temp, sizeof(temp), "artcanvas,%d,", data[0]);
-	strncat(buff, temp, sizeof(temp));
+	strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 	input_info(true, &ts->client->dev, "%s: %s\n", __func__, buff);
 
@@ -1136,21 +1136,21 @@ static void sec_ts_print_frame(struct sec_ts_data *ts, short *min, short *max)
 
 	memset(pStr, 0x0, 6 * (ts->tx_count + 1));
 	snprintf(pTmp, sizeof(pTmp), "      TX");
-	strncat(pStr, pTmp, 6 * ts->tx_count);
+	strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 	for (i = 0; i < ts->tx_count; i++) {
 		snprintf(pTmp, sizeof(pTmp), " %02d ", i);
-		strncat(pStr, pTmp, 6 * ts->tx_count);
+		strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 	}
 
 	input_raw_info(true, &ts->client->dev, "%s\n", pStr);
 	memset(pStr, 0x0, 6 * (ts->tx_count + 1));
 	snprintf(pTmp, sizeof(pTmp), " +");
-	strncat(pStr, pTmp, 6 * ts->tx_count);
+	strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 	for (i = 0; i < ts->tx_count; i++) {
 		snprintf(pTmp, sizeof(pTmp), "----");
-		strncat(pStr, pTmp, 6 * ts->rx_count);
+		strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 	}
 
 	input_raw_info(true, &ts->client->dev, "%s\n", pStr);
@@ -1158,7 +1158,7 @@ static void sec_ts_print_frame(struct sec_ts_data *ts, short *min, short *max)
 	for (i = 0; i < ts->rx_count; i++) {
 		memset(pStr, 0x0, 6 * (ts->tx_count + 1));
 		snprintf(pTmp, sizeof(pTmp), "Rx%02d | ", i);
-		strncat(pStr, pTmp, 6 * ts->tx_count);
+		strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 		for (j = 0; j < ts->tx_count; j++) {
 			snprintf(pTmp, sizeof(pTmp), " %3d", ts->pFrame[(j * ts->rx_count) + i]);
@@ -1169,7 +1169,7 @@ static void sec_ts_print_frame(struct sec_ts_data *ts, short *min, short *max)
 			if (ts->pFrame[(j * ts->rx_count) + i] > *max)
 				*max = ts->pFrame[(j * ts->rx_count) + i];
 
-			strncat(pStr, pTmp, 6 * ts->rx_count);
+			strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 		}
 		input_raw_info(true, &ts->client->dev, "%s\n", pStr);
 	}
@@ -1284,27 +1284,27 @@ static void sec_ts_print_channel(struct sec_ts_data *ts)
 
 	memset(pStr, 0x0, 7 * (ts->tx_count + 1));
 	snprintf(pTmp, sizeof(pTmp), " TX");
-	strncat(pStr, pTmp, 7 * ts->tx_count);
+	strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 	for (k = 0; k < ts->tx_count; k++) {
 		snprintf(pTmp, sizeof(pTmp), "    %02d", k);
-		strncat(pStr, pTmp, 7 * ts->tx_count);
+		strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 	}
 	input_raw_info(true, &ts->client->dev, "%s\n", pStr);
 
 	memset(pStr, 0x0, 7 * (ts->tx_count + 1));
 	snprintf(pTmp, sizeof(pTmp), " +");
-	strncat(pStr, pTmp, 7 * ts->tx_count);
+	strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 	for (k = 0; k < ts->tx_count; k++) {
 		snprintf(pTmp, sizeof(pTmp), "------");
-		strncat(pStr, pTmp, 7 * ts->tx_count);
+		strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 	}
 	input_raw_info(true, &ts->client->dev, "%s\n", pStr);
 
 	memset(pStr, 0x0, 7 * (ts->tx_count + 1));
 	snprintf(pTmp, sizeof(pTmp), " | ");
-	strncat(pStr, pTmp, 7 * ts->tx_count);
+	strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 	for (i = 0; i < (ts->tx_count + ts->rx_count) * 2; i += 2) {
 		if (j == ts->tx_count) {
@@ -1312,37 +1312,37 @@ static void sec_ts_print_channel(struct sec_ts_data *ts)
 			input_raw_info(true, &ts->client->dev, "\n");
 			memset(pStr, 0x0, 7 * (ts->tx_count + 1));
 			snprintf(pTmp, sizeof(pTmp), " RX");
-			strncat(pStr, pTmp, 7 * ts->tx_count);
+			strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 			for (k = 0; k < ts->tx_count; k++) {
 				snprintf(pTmp, sizeof(pTmp), "    %02d", k);
-				strncat(pStr, pTmp, 7 * ts->tx_count);
+				strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 			}
 
 			input_raw_info(true, &ts->client->dev, "%s\n", pStr);
 
 			memset(pStr, 0x0, 7 * (ts->tx_count + 1));
 			snprintf(pTmp, sizeof(pTmp), " +");
-			strncat(pStr, pTmp, 7 * ts->tx_count);
+			strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 			for (k = 0; k < ts->tx_count; k++) {
 				snprintf(pTmp, sizeof(pTmp), "------");
-				strncat(pStr, pTmp, 7 * ts->tx_count);
+				strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 			}
 			input_raw_info(true, &ts->client->dev, "%s\n", pStr);
 
 			memset(pStr, 0x0, 7 * (ts->tx_count + 1));
 			snprintf(pTmp, sizeof(pTmp), " | ");
-			strncat(pStr, pTmp, 7 * ts->tx_count);
+			strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 		} else if (j && !(j % ts->tx_count)) {
 			input_raw_info(true, &ts->client->dev, "%s\n", pStr);
 			memset(pStr, 0x0, 7 * (ts->tx_count + 1));
 			snprintf(pTmp, sizeof(pTmp), " | ");
-			strncat(pStr, pTmp, 7 * ts->tx_count);
+			strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 		}
 
 		snprintf(pTmp, sizeof(pTmp), " %5d", ts->pFrame[j]);
-		strncat(pStr, pTmp, 7 * ts->tx_count);
+		strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 		j++;
 	}
@@ -1471,14 +1471,14 @@ static int sec_ts_read_raw_data(struct sec_ts_data *ts,
 		if (mode->frame_channel) {
 			for (ii = 0; ii < (ts->rx_count + ts->tx_count); ii++) {
 				snprintf(temp, CMD_RESULT_WORD_LEN, "%d,", ts->pFrame[ii]);
-				strncat(buff, temp, CMD_RESULT_WORD_LEN);
+				strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 				memset(temp, 0x00, SEC_CMD_STR_LEN);
 			}
 		} else {
 			for (ii = 0; ii < (ts->rx_count * ts->tx_count); ii++) {
 				snprintf(temp, CMD_RESULT_WORD_LEN, "%d,", ts->pFrame[ii]);
-				strncat(buff, temp, CMD_RESULT_WORD_LEN);
+				strncat(buff, temp, sizeof(buff) - strlen(buff) - 1);
 
 				memset(temp, 0x00, SEC_CMD_STR_LEN);
 			}
@@ -3407,49 +3407,49 @@ static int execute_selftest(struct sec_ts_data *ts, bool save_result)
 
 	for (i = 0; i < 80; i += 4) {
 		if (i / 4 == 0)
-			strncat(pStr, "SIG ", 5);
+			strncat(pStr, "SIG ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 1)
-			strncat(pStr, "VER ", 5);
+			strncat(pStr, "VER ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 2)
-			strncat(pStr, "SIZ ", 5);
+			strncat(pStr, "SIZ ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 3)
-			strncat(pStr, "CRC ", 5);
+			strncat(pStr, "CRC ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 4)
-			strncat(pStr, "RES ", 5);
+			strncat(pStr, "RES ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 5)
-			strncat(pStr, "COU ", 5);
+			strncat(pStr, "COU ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 6)
-			strncat(pStr, "PAS ", 5);
+			strncat(pStr, "PAS ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 7)
-			strncat(pStr, "FAI ", 5);
+			strncat(pStr, "FAI ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 8)
-			strncat(pStr, "CHA ", 5);
+			strncat(pStr, "CHA ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 9)
-			strncat(pStr, "AMB ", 5);
+			strncat(pStr, "AMB ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 10)
-			strncat(pStr, "RXS ", 5);
+			strncat(pStr, "RXS ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 11)
-			strncat(pStr, "TXS ", 5);
+			strncat(pStr, "TXS ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 12)
-			strncat(pStr, "RXO ", 5);
+			strncat(pStr, "RXO ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 13)
-			strncat(pStr, "TXO ", 5);
+			strncat(pStr, "TXO ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 14)
-			strncat(pStr, "RXG ", 5);
+			strncat(pStr, "RXG ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 15)
-			strncat(pStr, "TXG ", 5);
+			strncat(pStr, "TXG ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 16)
-			strncat(pStr, "RXR ", 5);
+			strncat(pStr, "RXR ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 17)
-			strncat(pStr, "TXT ", 5);
+			strncat(pStr, "TXT ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 18)
-			strncat(pStr, "RXT ", 5);
+			strncat(pStr, "RXT ", sizeof(pStr) - strlen(pStr) - 1);
 		else if (i / 4 == 19)
-			strncat(pStr, "TXR ", 5);
+			strncat(pStr, "TXR ", sizeof(pStr) - strlen(pStr) - 1);
 
 		snprintf(pTmp, sizeof(pTmp), "%2X, %2X, %2X, %2X",
 			rBuff[i], rBuff[i + 1], rBuff[i + 2], rBuff[i + 3]);
-		strncat(pStr, pTmp, strnlen(pTmp, sizeof(pTmp)));
+		strncat(pStr, pTmp, sizeof(pStr) - strlen(pStr) - 1);
 
 		if (i / 4 == 4) {
 			if ((rBuff[i + 3] & 0x30) != 0)// RX, RX open check.
@@ -3466,7 +3466,7 @@ static int execute_selftest(struct sec_ts_data *ts, bool save_result)
 			input_raw_info(true, &ts->client->dev, "%s\n", pStr);
 			memset(pStr, 0x00, sizeof(pStr));
 		} else {
-			strncat(pStr, "  ", 3);
+			strncat(pStr, "  ", sizeof(pStr) - strlen(pStr) - 1);
 		}
 	}
 
@@ -3679,7 +3679,7 @@ static void run_low_freq_cm_read_all(void *device_data)
 			val = pFrame[jj * ts->rx_count + ii];
 			pr_cont("%d ", val);
 			snprintf(value, 6, "%d,", val);
-			strncat(buffer, value, 6);
+			strncat(buffer, value, sizeof(buffer) - strlen(buffer) - 1);
 			memset(value, 0x00, 6);
 
 		}

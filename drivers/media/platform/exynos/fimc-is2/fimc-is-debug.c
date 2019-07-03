@@ -507,7 +507,7 @@ void fimc_is_dmsg_concate(const char *fmt, ...)
 	va_end(ap);
 
 	copy_len = min((DEBUG_SENTENCE_MAX - fimc_is_debug.dsentence_pos), strlen(term));
-	strncpy(fimc_is_debug.dsentence + fimc_is_debug.dsentence_pos, term, copy_len);
+	memcpy(fimc_is_debug.dsentence + fimc_is_debug.dsentence_pos, term, copy_len);
 	fimc_is_debug.dsentence_pos += copy_len;
 }
 

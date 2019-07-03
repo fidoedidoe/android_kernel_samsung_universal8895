@@ -19,7 +19,7 @@
 #include "fimc-is-interface.h"
 #include "fimc-is-hw-flite-v4_20_0.h"
 
-static void flite_hw_enable_bns(u32 __iomem *base_reg, bool enable)
+static void flite_hw_enable_bns(u32 __iomem *base_reg, int enable)
 {
 	u32 cfg = 0;
 
@@ -328,7 +328,7 @@ int flite_hw_set_bns(u32 __iomem *base_reg, bool enable, struct fimc_is_image *i
 
 	flite_hw_s_coeff_bns(base_reg, factor_x, factor_y);
 
-	flite_hw_enable_bns(base_reg, true);
+	flite_hw_enable_bns(base_reg, 1);
 
 	info("BNS in(%d, %d), BNS out(%d, %d), ratio(%d, %d)\n",
 		width, height, otf_width, otf_height, factor_x, factor_y);
