@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/smc.h>
 #include <linux/cpuidle.h>
+#include <linux/devfreq_boost.h>
 
 #include "s5p_mfc_common.h"
 
@@ -355,6 +356,10 @@ static int s5p_mfc_open(struct file *file)
 			//set_hmp_family_boost(1);
 			mfc_debug(1, "call set_hmp_family_boost(1)\n");
 		}
+	} else if (node == MFCNODE_DECODER) {
+		dev->num_dec++;
+		if (dev->num_dec == 1)
+			disable_devfreq_video_boost(true);
 	}
 
 	/* Allocate memory for context */
@@ -603,6 +608,10 @@ err_ctx_alloc:
 			enable_priv_cpuidle();
 			mfc_debug(1, "call cpuidle_resume()\n");
 		}
+	} else if (node == MFCNODE_DECODER) {
+		dev->num_dec--;
+		if (dev->num_dec == 0)
+			disable_devfreq_video_boost(false);
 	}
 
 err_node_type:
@@ -702,6 +711,10 @@ static int s5p_mfc_release(struct file *file)
 			enable_priv_cpuidle();
 			mfc_debug(1, "call cpuidle_resume()\n");
 		}
+	} else if (ctx->type == MFCINST_DECODER && !ctx->is_drm) {
+		dev->num_dec--;
+		if (dev->num_dec == 0)
+			disable_devfreq_video_boost(false);
 	}
 
 	if (dev->num_inst == 0) {

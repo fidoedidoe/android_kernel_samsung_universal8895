@@ -429,6 +429,7 @@ struct s5p_mfc_dev {
 
 	int num_inst;
 	int num_enc;
+	int num_dec;
 
 	struct mutex mfc_mutex;
 
