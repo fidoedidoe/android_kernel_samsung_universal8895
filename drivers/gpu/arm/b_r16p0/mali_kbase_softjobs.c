@@ -1240,10 +1240,10 @@ static void kbase_jit_free_process(struct kbase_jd_atom *katom)
 	}
 }
 
-static void kbasep_jit_free_finish_worker(struct kthread_work *work)
+static void kbasep_jit_free_finish_worker(struct work_struct *work)
 {
 	struct kbase_jd_atom *katom = container_of(work, struct kbase_jd_atom,
-			job_done_work);
+			work);
 	struct kbase_context *kctx = katom->kctx;
 	int resched;
 
@@ -1297,9 +1297,9 @@ static void kbase_jit_free_finish(struct kbase_jd_atom *katom)
 				struct kbase_jd_atom, queue);
 		if (kbase_jit_allocate_process(pending_atom) == 0) {
 			/* Atom has completed */
-			init_kthread_work(&pending_atom->job_done_work,
+			INIT_WORK(&pending_atom->work,
 					kbasep_jit_free_finish_worker);
-			queue_kthread_work(&kctx->worker, &pending_atom->job_done_work);
+			queue_work(kctx->jctx.job_done_wq, &pending_atom->work);
 		}
 	}
 }

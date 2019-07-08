@@ -150,7 +150,15 @@ void kbase_jd_dep_clear_locked(struct kbase_jd_atom *katom)
 
 void kbase_jd_free_external_resources(struct kbase_jd_atom *katom)
 {
-	/* No-op */
+#ifdef CONFIG_MALI_DMA_FENCE
+	/* Flush dma-fence workqueue to ensure that any callbacks that may have
+	 * been queued are done before continuing.
+	 * Any successfully completed atom would have had all it's callbacks
+	 * completed before the atom was run, so only flush for failed atoms.
+	 */
+	if (katom->event_code != BASE_JD_EVENT_DONE)
+		flush_workqueue(katom->kctx->dma_fence.wq);
+#endif /* CONFIG_MALI_DMA_FENCE */
 }
 
 static void kbase_jd_post_external_resources(struct kbase_jd_atom *katom)
@@ -1568,6 +1576,13 @@ void kbase_jd_zap_context(struct kbase_context *kctx)
 
 	mutex_unlock(&kctx->jctx.lock);
 
+#ifdef CONFIG_MALI_DMA_FENCE
+	/* Flush dma-fence workqueue to ensure that any callbacks that may have
+	 * been queued are done before continuing.
+	 */
+	flush_workqueue(kctx->dma_fence.wq);
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 	kbase_debug_job_fault_kctx_unblock(kctx);
 #endif
@@ -1580,8 +1595,16 @@ KBASE_EXPORT_TEST_API(kbase_jd_zap_context);
 int kbase_jd_init(struct kbase_context *kctx)
 {
 	int i;
+	int mali_err = 0;
 
 	KBASE_DEBUG_ASSERT(kctx);
+
+	kctx->jctx.job_done_wq = alloc_workqueue("mali_jd",
+			WQ_HIGHPRI | WQ_UNBOUND, 1);
+	if (NULL == kctx->jctx.job_done_wq) {
+		mali_err = -ENOMEM;
+		goto out1;
+	}
 
 	for (i = 0; i < BASE_JD_ATOM_COUNT; i++) {
 		init_waitqueue_head(&kctx->jctx.atoms[i].completed);
@@ -1615,6 +1638,9 @@ int kbase_jd_init(struct kbase_context *kctx)
 	atomic_set(&kctx->work_count, 0);
 
 	return 0;
+
+ out1:
+	return mali_err;
 }
 
 KBASE_EXPORT_TEST_API(kbase_jd_init);
@@ -1622,6 +1648,9 @@ KBASE_EXPORT_TEST_API(kbase_jd_init);
 void kbase_jd_exit(struct kbase_context *kctx)
 {
 	KBASE_DEBUG_ASSERT(kctx);
+
+	/* Work queue is emptied by this */
+	destroy_workqueue(kctx->jctx.job_done_wq);
 }
 
 KBASE_EXPORT_TEST_API(kbase_jd_exit);

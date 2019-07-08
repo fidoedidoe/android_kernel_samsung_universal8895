@@ -282,6 +282,10 @@ int kbase_event_init(struct kbase_context *kctx)
 	atomic_set(&kctx->event_count, 0);
 	kctx->event_coalesce_count = 0;
 	atomic_set(&kctx->event_closed, false);
+	kctx->event_workq = alloc_workqueue("kbase_event", WQ_MEM_RECLAIM, 1);
+
+	if (NULL == kctx->event_workq)
+		return -EINVAL;
 
 	return 0;
 }
@@ -293,6 +297,9 @@ void kbase_event_cleanup(struct kbase_context *kctx)
 	int event_count;
 
 	KBASE_DEBUG_ASSERT(kctx);
+
+	flush_workqueue(kctx->event_workq);
+	destroy_workqueue(kctx->event_workq);
 
 	/* We use kbase_event_dequeue to remove the remaining events as that
 	 * deals with all the cleanup needed for the atoms.
