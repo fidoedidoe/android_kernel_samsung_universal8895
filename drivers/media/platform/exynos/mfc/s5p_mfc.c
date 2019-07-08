@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/smc.h>
 #include <linux/cpuidle.h>
+#include <linux/devfreq_boost.h>
 
 #include "s5p_mfc_common.h"
 
@@ -544,6 +545,11 @@ static int s5p_mfc_open(struct file *file)
 	MFC_TRACE_CTX_LT("[INFO] %s %s opened (ctx:%d, total:%d)\n", ctx->is_drm ? "DRM" : "Normal",
 			s5p_mfc_is_decoder_node(node) ? "DEC" : "ENC", ctx->num, dev->num_inst);
 	mutex_unlock(&dev->mfc_mutex);
+
+	if (node == MFCNODE_DECODER ||
+	    node == MFCNODE_DECODER_DRM)
+		disable_devfreq_boost(1);
+
 	return ret;
 
 	/* Deinit when failure occured */
@@ -627,9 +633,15 @@ static int s5p_mfc_release(struct file *file)
 	struct s5p_mfc_dev *dev = ctx->dev;
 	struct s5p_mfc_dec *dec = NULL;
 	struct s5p_mfc_enc *enc = NULL;
+	enum s5p_mfc_node_type node;
 	int ret = 0;
 
 	mutex_lock(&dev->mfc_mutex);
+
+	node = s5p_mfc_get_node_type(file);
+	if (node == MFCNODE_DECODER ||
+	    node == MFCNODE_DECODER_DRM)
+		disable_devfreq_boost(0);
 
 	mfc_info_ctx("MFC driver release is called [%d:%d], is_drm(%d)\n",
 			dev->num_drm_inst, dev->num_inst, ctx->is_drm);
