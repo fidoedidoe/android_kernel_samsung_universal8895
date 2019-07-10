@@ -5892,10 +5892,6 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
 
 	} while (sg = sg->next, sg != sd->groups);
 
-	/* Scale energy before comparisons */
-	for (cpu_idx = EAS_CPU_PRV; cpu_idx < EAS_CPU_CNT; ++cpu_idx)
-		eenv->cpu[cpu_idx].energy >>= SCHED_CAPACITY_SHIFT;
-
 	/*
 	 * Compute the dead-zone margin used to prevent too many task
 	 * migrations with negligible energy savings.
