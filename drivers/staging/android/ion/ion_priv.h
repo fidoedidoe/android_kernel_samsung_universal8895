@@ -104,7 +104,9 @@ struct ion_buffer {
 		void *priv_virt;
 		ion_phys_addr_t priv_phys;
 	};
-	struct mutex lock;
+	struct mutex kmap_lock;
+	struct mutex page_lock;
+	struct mutex vma_lock;
 	int kmap_cnt;
 	void *vaddr;
 	int dmap_cnt;
@@ -112,10 +114,6 @@ struct ion_buffer {
 	struct page **pages;
 	struct list_head vmas;
 	struct list_head iovas;
-	/* used to track orphaned buffers */
-	int handle_count;
-	char task_comm[TASK_COMM_LEN];
-	pid_t pid;
 
 #ifdef CONFIG_ION_EXYNOS_STAT_LOG
 	struct list_head master_list;
@@ -244,12 +242,6 @@ struct ion_heap {
 	size_t free_list_size;
 	spinlock_t free_lock;
 	wait_queue_head_t waitqueue;
-	struct task_struct *task;
-
-	int (*debug_show)(struct ion_heap *heap, struct seq_file *, void *);
-	atomic_long_t total_allocated;
-	atomic_long_t total_allocated_peak;
-	atomic_long_t total_handles;
 };
 
 /**

@@ -307,7 +307,7 @@ int ion_secure_unprotect(struct ion_buffer *buffer)
 
 struct ion_client *exynos_ion_client_create(const char *name)
 {
-	return ion_client_create(ion_exynos, name);
+	return ion_client_create(ion_exynos);
 }
 
 bool ion_is_heap_available(struct ion_heap *heap,

@@ -113,7 +113,6 @@ free_mem:
 			(PAGE_ALIGN(size) >> PAGE_SHIFT));
 err:
 	kfree(info);
-	ion_debug_heap_usage_show(heap);
 	return ret;
 }
 

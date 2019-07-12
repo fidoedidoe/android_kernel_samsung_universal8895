@@ -155,16 +155,12 @@ int ion_heap_buffer_zero(struct ion_buffer *buffer)
 	pgprot_t pgprot;
 	int ret;
 
-	ION_EVENT_BEGIN();
-
 	if (buffer->flags & ION_FLAG_CACHED)
 		pgprot = PAGE_KERNEL;
 	else
 		pgprot = pgprot_writecombine(PAGE_KERNEL);
 
 	ret = ion_heap_sglist_zero(table->sgl, table->nents, pgprot);
-
-	ION_EVENT_CLEAR(buffer, ION_EVENT_DONE());
 
 	return ret;
 }
@@ -242,7 +238,12 @@ size_t ion_heap_freelist_shrink(struct ion_heap *heap, size_t size)
 
 static int ion_heap_deferred_free(void *data)
 {
+	static const struct sched_param param = {
+		.sched_priority = 0
+	};
 	struct ion_heap *heap = data;
+
+	sched_setscheduler(current, SCHED_IDLE, &param);
 
 	while (true) {
 		struct ion_buffer *buffer;
@@ -268,18 +269,16 @@ static int ion_heap_deferred_free(void *data)
 
 int ion_heap_init_deferred_free(struct ion_heap *heap)
 {
-	struct sched_param param = { .sched_priority = 0 };
+	struct task_struct *thread;
 
 	INIT_LIST_HEAD(&heap->free_list);
 	init_waitqueue_head(&heap->waitqueue);
-	heap->task = kthread_run(ion_heap_deferred_free, heap,
-				 "%s", heap->name);
-	if (IS_ERR(heap->task)) {
+	thread = kthread_run(ion_heap_deferred_free, heap, "%s", heap->name);
+	if (IS_ERR(thread)) {
 		pr_err("%s: creating thread for deferred free failed\n",
 		       __func__);
-		return PTR_ERR_OR_ZERO(heap->task);
+		return PTR_ERR_OR_ZERO(thread);
 	}
-	sched_setscheduler(heap->task, SCHED_IDLE, &param);
 	return 0;
 }
 

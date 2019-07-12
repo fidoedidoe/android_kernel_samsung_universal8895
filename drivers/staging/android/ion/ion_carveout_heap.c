@@ -156,7 +156,6 @@ err_free_table:
 	sg_free_table(&info->table);
 err_free:
 	kfree(info);
-	ion_debug_heap_usage_show(heap);
 	return ret;
 }
 
@@ -200,23 +199,6 @@ static void ion_carveout_heap_unmap_dma(struct ion_heap *heap,
 {
 }
 
-static int carveout_heap_debug_show(struct ion_heap *heap,
-					struct seq_file *s,
-					void *unused)
-{
-	struct ion_carveout_heap *carveout_heap =
-		container_of(heap, struct ion_carveout_heap, heap);
-
-	seq_puts(s, "\ncarveout heap allocations\n");
-	seq_printf(s, "%11.s %10.s %10.s\n", "name", "size", "free");
-	seq_puts(s, "----------------------------------------------------\n");
-	seq_printf(s, "%11.s %#10.zx %#10.zx\n",
-			heap->name, gen_pool_size(carveout_heap->pool),
-			gen_pool_avail(carveout_heap->pool));
-
-	return 0;
-}
-
 static struct ion_heap_ops carveout_heap_ops = {
 	.allocate = ion_carveout_heap_allocate,
 	.free = ion_carveout_heap_free,
@@ -252,7 +234,6 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 		     -1);
 	carveout_heap->heap.ops = &carveout_heap_ops;
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
-	carveout_heap->heap.debug_show = carveout_heap_debug_show;
 
 	if (size >= ION_FLUSH_ALL_HIGHLIMIT)
 		flush_all_cpu_caches();

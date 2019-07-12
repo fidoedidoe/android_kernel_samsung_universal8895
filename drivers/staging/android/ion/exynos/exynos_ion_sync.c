@@ -79,8 +79,6 @@ void exynos_ion_flush_dmabuf_for_device(struct device *dev,
 		ion_buffer_fault_user_mappings(buffer))
 		return;
 
-	mutex_lock(&buffer->lock);
-
 	pr_debug("%s: flushing for device %s, buffer: %p, size: %zd\n",
 		 __func__, dev ? dev_name(dev) : "null", buffer, size);
 
@@ -92,8 +90,6 @@ void exynos_ion_flush_dmabuf_for_device(struct device *dev,
 
 	trace_ion_sync_end(_RET_IP_, dev, DMA_BIDIRECTIONAL, size,
 			   buffer->vaddr, 0, size >= ION_FLUSH_ALL_HIGHLIMIT);
-
-	mutex_unlock(&buffer->lock);
 }
 EXPORT_SYMBOL(exynos_ion_flush_dmabuf_for_device);
 
@@ -111,8 +107,6 @@ void exynos_ion_sync_dmabuf_for_device(struct device *dev,
 			ion_buffer_fault_user_mappings(buffer))
 		return;
 
-	mutex_lock(&buffer->lock);
-
 	pr_debug("%s: syncing for device %s, buffer: %p, size: %zd\n",
 			__func__, dev ? dev_name(dev) : "null", buffer, size);
 
@@ -129,8 +123,6 @@ void exynos_ion_sync_dmabuf_for_device(struct device *dev,
 
 	trace_ion_sync_end(_RET_IP_, dev, dir, size,
 			buffer->vaddr, 0, size >= ION_FLUSH_ALL_HIGHLIMIT);
-
-	mutex_unlock(&buffer->lock);
 }
 EXPORT_SYMBOL(exynos_ion_sync_dmabuf_for_device);
 
@@ -183,8 +175,6 @@ void exynos_ion_sync_dmabuf_for_cpu(struct device *dev,
 			ion_buffer_fault_user_mappings(buffer))
 		return;
 
-	mutex_lock(&buffer->lock);
-
 	pr_debug("%s: syncing for cpu %s, buffer: %p, size: %zd\n",
 			__func__, dev ? dev_name(dev) : "null", buffer, size);
 
@@ -201,8 +191,6 @@ void exynos_ion_sync_dmabuf_for_cpu(struct device *dev,
 
 	trace_ion_sync_end(_RET_IP_, dev, dir, size,
 			buffer->vaddr, 0, size >= ION_FLUSH_ALL_HIGHLIMIT);
-
-	mutex_unlock(&buffer->lock);
 }
 EXPORT_SYMBOL(exynos_ion_sync_dmabuf_for_cpu);
 
