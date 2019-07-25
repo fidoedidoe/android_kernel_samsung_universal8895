@@ -672,6 +672,8 @@ KBUILD_CFLAGS   += -O2
 endif
 endif
 
+KBUILD_CFLAGS   += -mcpu=exynos-m1.cortex-a53
+
 # Tell gcc to never replace conditional load with a non-conditional one
 KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 
