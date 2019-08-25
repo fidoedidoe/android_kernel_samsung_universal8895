@@ -170,7 +170,7 @@
 			logical-id = <0>;
 			enable-method = "psci";
 			cpu-idle-states = <&BOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			sched-energy-data = <&A53_ENERGY>;
 			#cooling-cells = <2>; /* min followed by max */
 			current = <60240 40410 27260 20180 16850 13710 10710 8290 6060>;
 		};
@@ -181,7 +181,7 @@
 			logical-id = <1>;
 			enable-method = "psci";
 			cpu-idle-states = <&BOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			sched-energy-data = <&A53_ENERGY>;
 			current = <60240 40410 27260 20180 16850 13710 10710 8290 6060>;
 		};
 		cpu@102 {
@@ -191,7 +191,7 @@
 			logical-id = <2>;
 			enable-method = "psci";
 			cpu-idle-states = <&BOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			sched-energy-data = <&A53_ENERGY>;
 			current = <60240 40410 27260 20180 16850 13710 10710 8290 6060>;
 		};
 		cpu@103 {
@@ -201,7 +201,7 @@
 			logical-id = <3>;
 			enable-method = "psci";
 			cpu-idle-states = <&BOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_0 &CLUSTER_COST_0>;
+			sched-energy-data = <&A53_ENERGY>;
 			current = <60240 40410 27260 20180 16850 13710 10710 8290 6060>;
 		};
 		cpu4: cpu@0 {
@@ -211,7 +211,7 @@
 			logical-id = <4>;
 			enable-method = "psci";
 			cpu-idle-states = <&NONBOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			sched-energy-data = <&M2_ENERGY>;
 			#cooling-cells = <2>; /* min followed by max */
 			current = <355850 295970 251060 233620 201350 177320 137850 111850 100000 88090 78470 69380 58880>;
 		};
@@ -222,7 +222,7 @@
 			logical-id = <5>;
 			enable-method = "psci";
 			cpu-idle-states = <&NONBOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			sched-energy-data = <&M2_ENERGY>;
 			current = <355850 295970 251060 233620 201350 177320 137850 111850 100000 88090 78470 69380 58880>;
 		};
 		cpu@2 {
@@ -232,7 +232,7 @@
 			logical-id = <6>;
 			enable-method = "psci";
 			cpu-idle-states = <&NONBOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			sched-energy-data = <&M2_ENERGY>;
 			current = <355850 295970 251060 233620 201350 177320 137850 111850 100000 88090 78470 69380 58880>;
 		};
 		cpu@3 {
@@ -242,7 +242,7 @@
 			logical-id = <7>;
 			enable-method = "psci";
 			cpu-idle-states = <&NONBOOTCL_CPU_SLEEP>;
-			sched-energy-costs = <&CPU_COST_1 &CLUSTER_COST_1>;
+			sched-energy-data = <&M2_ENERGY>;
 			current = <355850 295970 251060 233620 201350 177320 137850 111850 100000 88090 78470 69380 58880>;
 		};
 
@@ -269,78 +269,70 @@
 				status = "okay";
 			};
 		};
-		energy-costs {
-			CPU_COST_0: core-core0{
-				busy-cost-data = <
-					116 20
-					152 29
-					182 39
-					212 50
-					242 63
-					269 75
-					319 104
-					372 154
-					432 231
-				>;
-				idle-cost-data = <
-					1 1 0
-				>;
+
+		energy-data {
+			A53_ENERGY: a53-energy {
+				capacity-mips = <230>;
+				power-coefficient = <124>;
 			};
-			CPU_COST_1: core-core1{
-				busy-cost-data = <
-					327  135
-					379  167
-					425  193
-					471  223
-					517  258
-					558  294
-					650  373
-					753  493
-					799  566
-					857  662
-					885  716
-					954  851
-					1024 1026
-				>;
-				idle-cost-data = <
-					10 10 0
-				>;
+			M2_ENERGY: m2-energy {
+				capacity-mips = <565>;
+				power-coefficient = <465>;
 			};
-			CLUSTER_COST_0: cluster-core0{
-				busy-cost-data = <
-					116 2
-					152 5
-					182 8
-					212 12
-					242 17
-					269 23
-					319 35
-					372 57
-					432 93
-				>;
-				idle-cost-data = <
-					5 5 5
-				>;
+		};
+
+		ems {
+			/* Ontime Migration */
+			ontime {
+				/* little cores */
+				coregroup0 {
+					lower-boundary = <0>;
+					upper-boundary = <68>;
+					coverage-ratio = <100>;
+				};
+				/* big cores */
+				coregroup1 {
+					lower-boundary = <17>;
+					upper-boundary = <100>;
+					coverage-ratio = <75>;
+				};
 			};
-			CLUSTER_COST_1: cluster-core1{
-				busy-cost-data = <
-					327  38
-					379  44
-					425  53
-					471  64
-					517  75
-					558  88
-					650  113
-					753  156
-					799  180
-					857  213
-					885  231
-					954  277
-					1024 335
-				>;
-				idle-cost-data = <
-					70 70 70
-				>;
+
+			/* Load Balance Trigger */
+			#define DEFAULT_RATIO	80
+			lbt {
+				overutil-level0 {
+					cpus =	"0-3",
+						"4-7";
+					ratio =	<30>,
+						<40>;
+				};
+				overutil-level1 {
+					cpus =	"0-7";
+					ratio =	<DEFAULT_RATIO>;
+				};
+			};
+
+			/* FRT Migration */
+			frt {
+				/* little cores */
+				coregroup0 {
+					coverage-ratio = <30>;
+					active-ratio = <25>;
+				};
+				/* big cores */
+				coregroup1 {
+					coverage-ratio = <30>;
+					active-ratio = <5>;
+				};
+			};
+
+			prefer-perf-service {
+				prefer-perf0 {
+					boost = <1>;
+					light-task-threshold = <10>;
+					prefer-cpus = "4-7", "0-3";
+				};
 			};
 		};
 	};
