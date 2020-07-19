@@ -276,7 +276,7 @@
 				power-coefficient = <124>;
 			};
 			M2_ENERGY: m2-energy {
-				capacity-mips = <565>;
+				capacity-mips = <480>;
 				power-coefficient = <465>;
 			};
 		};
